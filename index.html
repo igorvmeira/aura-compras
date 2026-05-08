@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bar & Drink — Gestão</title>
+
+<!-- ═══════════════════════════════════════════════════
+     🔥 FIREBASE — cole sua config aqui
+     1. console.firebase.google.com → seu projeto
+     2. Configurações → Seus apps → Web → firebaseConfig
+     ═══════════════════════════════════════════════════ -->
+<script type="module">
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signInAnonymously }            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyDpcbiREPykjA3VhW58iPvAaM3DYM30dAw",
+  authDomain:        "aura-compras-4905a.firebaseapp.com",
+  projectId:         "aura-compras-4905a",
+  storageBucket:     "aura-compras-4905a.firebasestorage.app",
+  messagingSenderId: "830122228755",
+  appId:             "1:830122228755:web:e0116b76512040c8b353e6"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const auth = getAuth(app);
+
+signInAnonymously(auth).then(() => {
+  document.getElementById('syncDot').classList.add('live');
+
+  onSnapshot(doc(db,'gestao','statuses'), s => {
+    if(s.exists()){ window.statuses = s.data(); window._rc && window._rc(); }
+  });
+  onSnapshot(doc(db,'gestao','notes'), s => {
+    if(s.exists()){ window.notes = s.data(); window._rc && window._rc(); }
+  });
+  onSnapshot(doc(db,'gestao','quotes'), s => {
+    if(s.exists()){ window.extraQuotes = s.data().list||[]; window._rq && window._rq(); }
+  });
+}).catch(()=>{ document.getElementById('syncDot').style.background='var(--red)'; });
+
+window._save = async (col, data) => {
+  if(col==='quotes') await setDoc(doc(db,'gestao','quotes'),{list:data});
+  else               await setDoc(doc(db,'gestao',col), data);
+};
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+:root{
+  --bg:#0d0f14; --s1:#13161f; --s2:#191d28; --s3:#1f2435; --border:#252c3f;
+  --accent:#f5c842; --green:#3ecf8e; --red:#f56565; --blue:#63a8f5;
+  --purple:#a78bfa; --orange:#fb923c; --text:#e8ecf8; --muted:#5a6380; --r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* NAV */
+nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;gap:10px;flex-wrap:wrap}
+.logo{font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.logo em{color:var(--accent);font-style:normal}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);
+  transition:background .4s;display:inline-block}
+.sync-dot.live{background:var(--green);box-shadow:0 0 6px var(--green)}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:6px 12px;border-radius:7px;font-size:.75rem;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.tab.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+
+/* PAGES */
+.page{display:none;max-width:980px;margin:0 auto;padding:16px 14px 60px}
+.page.on{display:block}
+
+/* STATS */
+.stats{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:var(--s1);border:1px solid var(--border);border-radius:50px;
+  padding:4px 13px;font-size:.75rem;display:flex;align-items:center;gap:5px}
+.stat b{font-weight:700}
+.sy{border-color:#f5c84250;color:var(--accent)}
+.sg{border-color:#3ecf8e50;color:var(--green)}
+.sb{border-color:#63a8f550;color:var(--blue)}
+.sr{border-color:#f5656550;color:var(--red)}
+
+/* PROGRESS */
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.prog-track{flex:1;height:5px;background:var(--border);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));
+  border-radius:99px;transition:width .4s}
+.prog-pct{font-size:.73rem;color:var(--muted);min-width:32px;text-align:right}
+
+/* FILTERS */
+.frow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.fi{flex:1;min-width:160px;background:var(--s1);border:1px solid var(--border);
+  color:var(--text);padding:8px 12px;border-radius:8px;
+  font-family:'DM Sans',sans-serif;font-size:.84rem}
+.fi::placeholder{color:var(--muted)}
+.fb{background:var(--s1);border:1px solid var(--border);color:var(--muted);
+  padding:7px 11px;border-radius:8px;font-size:.74rem;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .15s;white-space:nowrap}
+.fb.on{background:var(--accent);color:#111;border-color:var(--accent);font-weight:600}
+.fb.danger{border-color:#f5656540;color:var(--red)}
+.fb.danger:hover{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* CATEGORY BLOCK */
+.cat-block{margin-bottom:16px}
+.cat-head{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:var(--s2);border:1px solid var(--border);
+  border-radius:10px 10px 0 0;cursor:pointer;user-select:none}
+.cat-head:hover{background:var(--s3)}
+.ch-l{display:flex;align-items:center;gap:8px}
+.cat-icon{font-size:1rem}
+.cat-name{font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700}
+.ch-r{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--muted)}
+.cat-chev{transition:transform .2s}
+.cat-chev.open{transform:rotate(180deg)}
+.cat-bar{height:2px;background:var(--border)}
+.cat-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .4s}
+.cat-items{border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden}
+.cat-items.closed{display:none}
+
+/* ITEM ROW */
+.irow{display:grid;grid-template-columns:28px 1fr auto auto;
+  align-items:center;gap:10px;padding:10px 14px;
+  background:var(--s1);border-bottom:1px solid var(--border);transition:background .12s}
+.irow:last-child{border-bottom:none}
+.irow:hover{background:#161b28}
+.irow.bought{opacity:.5}
+.irow.received{opacity:.35}
+
+.chk{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:.65rem;font-weight:800;flex-shrink:0;transition:all .12s;user-select:none}
+.chk:hover{border-color:var(--accent)}
+.chk.ck-buy{background:var(--accent);border-color:var(--accent);color:#111}
+.chk.ck-recv{background:var(--green);border-color:var(--green);color:#111}
+
+.iinfo{min-width:0}
+.iname{font-size:.86rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.tag{font-size:.66rem;padding:1px 7px;border-radius:50px;
+  border:1px solid var(--border);color:var(--muted);white-space:nowrap}
+.t-sup{border-color:#63a8f530;color:var(--blue)}
+.t-prc{border-color:#3ecf8e30;color:var(--green)}
+.t-obs{border-color:#a78bfa30;color:var(--purple)}
+.t-sld{border-color:#f5c84230;color:var(--accent)}
+.t-vtag{border-color:#fb923c30;color:var(--orange)}
+
+.iqty{text-align:right;white-space:nowrap;line-height:1.2}
+.iqty b{font-family:'Syne',sans-serif;font-size:.92rem;font-weight:800;color:var(--accent)}
+.iqty small{display:block;font-size:.63rem;color:var(--muted)}
+
+.iacts{display:flex;gap:4px;flex-shrink:0}
+.abtn{background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:6px;padding:3px 7px;font-size:.68rem;cursor:pointer;
+  transition:all .12s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.ab-buy{border-color:#f5c84240;color:var(--accent)}
+.ab-buy:hover,.ab-buy.on{background:var(--accent);color:#111;font-weight:600;border-color:var(--accent)}
+.ab-recv{border-color:#3ecf8e40;color:var(--green)}
+.ab-recv:hover,.ab-recv.on{background:var(--green);color:#111;font-weight:600;border-color:var(--green)}
+.ab-note.has{border-color:#a78bfa40;color:var(--purple)}
+
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:.79rem}
+.tbl th{background:var(--s2);padding:9px 12px;text-align:left;
+  border-bottom:1px solid var(--border);color:var(--muted);font-weight:500}
+.tbl td{padding:9px 12px;border-bottom:1px solid #1a1f30;vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#161b28}
+.rank{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent)}
+.bar-w{background:var(--border);border-radius:99px;height:5px;min-width:60px}
+.bar-f{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--green))}
+
+/* COTAÇÕES TABLE */
+.ctbl-wrap{overflow-x:auto;margin-bottom:20px}
+.ctbl{width:100%;border-collapse:collapse;font-size:.77rem;min-width:600px}
+.ctbl th{background:var(--s2);padding:8px 11px;text-align:left;
+  border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap}
+.ctbl th.fh{color:var(--blue)}
+.ctbl td{padding:8px 11px;border-bottom:1px solid #1a1f30;vertical-align:middle}
+.ctbl tr:hover td{background:#161b28}
+.best{background:rgba(62,207,142,.12);color:var(--green);font-weight:700;
+  border-radius:5px;padding:2px 7px;display:inline-block}
+.nopr{color:#2a3050}
+.win{background:rgba(62,207,142,.15);color:var(--green);
+  border:1px solid rgba(62,207,142,.3);padding:1px 8px;border-radius:50px;
+  font-size:.67rem;font-weight:700}
+
+/* UPLOAD */
+.uzone{border:2px dashed var(--border);border-radius:var(--r);padding:28px 20px;
+  text-align:center;cursor:pointer;background:var(--s1);position:relative;
+  transition:all .2s;margin-bottom:14px}
+.uzone:hover,.uzone.drag{border-color:var(--accent);background:var(--s2)}
+.uzone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+
+/* BTN */
+.btn{background:var(--accent);color:#111;border:none;padding:9px 20px;
+  border-radius:8px;font-family:'Syne',sans-serif;font-weight:700;
+  font-size:.82rem;cursor:pointer;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-g{background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:8px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;
+  font-family:'DM Sans',sans-serif;transition:all .15s}
+.btn-g:hover{color:var(--text)}
+
+/* SECTION TITLE */
+.stitle{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;
+  margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.stitle small{color:var(--muted);font-size:.7rem;font-weight:400}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);
+  padding:22px;width:100%;max-width:380px}
+.modal h4{font-family:'Syne',sans-serif;font-size:.9rem;margin-bottom:12px}
+.modal textarea{width:100%;background:var(--s2);border:1px solid var(--border);
+  color:var(--text);border-radius:8px;padding:10px;font-family:'DM Sans',sans-serif;
+  font-size:.83rem;resize:vertical;min-height:80px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
+/* AI STATUS */
+.ai-box{display:none;background:var(--s2);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px 18px;margin-bottom:14px;
+  align-items:center;gap:12px}
+.ai-box.show{display:flex}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:18px;height:18px;border:3px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin 1s linear infinite;flex-shrink:0}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;left:50%;
+  transform:translateX(-50%) translateY(80px);
+  background:var(--s3);border:1px solid var(--border);border-radius:50px;
+  padding:9px 20px;font-size:.79rem;z-index:300;
+  transition:transform .3s;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:rgba(62,207,142,.4);color:var(--green)}
+.toast.err{border-color:rgba(245,101,101,.4);color:var(--red)}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty .ei{font-size:2rem;margin-bottom:8px}
+.empty h3{font-family:'Syne',sans-serif;color:var(--text);margin-bottom:4px;font-size:.95rem}
+.empty p{font-size:.78rem;line-height:1.6}
+
+@media(max-width:560px){
+  .irow{grid-template-columns:24px 1fr auto}
+  .iqty{display:none}
+  .iacts{flex-direction:column;gap:2px}
+  .abtn{font-size:.6rem;padding:2px 5px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">
+    🍹 Bar &amp; Drink — <em>Gestão</em>
+    <span class="sync-dot" id="syncDot" title="Firebase ao vivo"></span>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="goPage('compras',this)">🛒 Compras</button>
+    <button class="tab" onclick="goPage('cotacoes',this)">📊 Cotações</button>
+    <button class="tab" onclick="goPage('vendas',this)">📈 Vendas</button>
+    <button class="tab" onclick="goPage('estoque',this)">📦 Estoque</button>
+  </div>
+</nav>
+
+<!-- ═══════════ COMPRAS ═══════════ -->
+<div class="page on" id="page-compras">
+  <div class="stats">
+    <div class="stat sy">📦 Total: <b id="sT">0</b></div>
+    <div class="stat sr">⏳ Pendentes: <b id="sP">0</b></div>
+    <div class="stat sb">🛒 Comprados: <b id="sB">0</b></div>
+    <div class="stat sg">✅ Recebidos: <b id="sR">0</b></div>
+  </div>
+  <div class="prog">
+    <div class="prog-track"><div class="prog-fill" id="pFill" style="width:0%"></div></div>
+    <div class="prog-pct" id="pPct">0%</div>
+  </div>
+  <div class="frow">
+    <input class="fi" type="text" id="csrch" placeholder="🔍 Buscar item ou fornecedor..." oninput="renderCompras()">
+    <button class="fb on" id="fa"  onclick="setF('all')">Todos</button>
+    <button class="fb"    id="fp"  onclick="setF('pending')">Pendentes</button>
+    <button class="fb"    id="fb2" onclick="setF('bought')">Comprados</button>
+    <button class="fb"    id="fr"  onclick="setF('received')">Recebidos</button>
+    <button class="fb danger" onclick="resetAll()">🗑 Limpar</button>
+  </div>
+  <div id="clist"></div>
+</div>
+
+<!-- ═══════════ COTAÇÕES ═══════════ -->
+<div class="page" id="page-cotacoes">
+  <div class="stitle">📤 Nova Cotação <small>PDF, foto, Excel ou texto — lido pela IA</small></div>
+
+  <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <input class="fi" type="text" id="supName" placeholder="Nome do fornecedor (ex: Adega de Minas)" style="max-width:340px">
+  </div>
+
+  <div class="uzone" id="uzone">
+    <input type="file" id="fileUp" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.csv,.txt" multiple>
+    <div style="font-size:2rem;margin-bottom:8px">📄</div>
+    <div style="font-family:'Syne',sans-serif;font-size:.9rem;margin-bottom:4px" id="uzH">Arraste ou clique para subir</div>
+    <div style="font-size:.75rem;color:var(--muted)" id="uzP">PDF, foto, planilha ou texto · múltiplos arquivos</div>
+  </div>
+
+  <textarea class="fi" id="pasteT" placeholder="Ou cole aqui o texto da cotação (WhatsApp, e-mail...)"
+    style="width:100%;min-height:90px;resize:vertical;padding:11px;
+    border-radius:var(--r);margin-bottom:12px;display:block"></textarea>
+
+  <div style="display:flex;gap:8px;margin-bottom:18px">
+    <button class="btn" id="btnIA" onclick="analisarCotacao()">✨ Analisar com IA</button>
+    <button class="btn-g" onclick="clearUp()">Limpar</button>
+  </div>
+
+  <div class="ai-box" id="aiBox">
+    <div class="spinner"></div>
+    <span id="aiMsg" style="font-size:.83rem;color:var(--muted)"></span>
+  </div>
+
+  <div id="extCard" style="display:none;background:var(--s2);border:1px solid var(--border);
+    border-radius:var(--r);padding:16px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;
+      margin-bottom:12px;flex-wrap:wrap;gap:8px">
+      <span style="font-family:'Syne',sans-serif;font-size:.87rem;font-weight:700">✅ Itens extraídos</span>
+      <span id="extSup" style="background:var(--accent);color:#111;padding:2px 11px;
+        border-radius:50px;font-size:.72rem;font-weight:700"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl" style="min-width:400px">
+        <thead><tr><th>#</th><th>Produto</th><th>Embalagem</th><th>Preço Unit.</th><th></th></tr></thead>
+        <tbody id="extBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="btn-g" onclick="clearUp()">Cancelar</button>
+      <button class="btn" onclick="saveCot()">💾 Salvar Cotação</button>
+    </div>
+  </div>
+
+  <div class="stitle">📊 Comparativo de Fornecedores <small id="cotSub"></small></div>
+  <div class="ctbl-wrap">
+    <table class="ctbl"><thead id="ctH"></thead><tbody id="ctB"></tbody></table>
+  </div>
+  <div class="empty" id="cotEmpty" style="display:none">
+    <div class="ei">📊</div>
+    <h3>Nenhuma cotação ainda</h3>
+    <p>Suba uma cotação acima para ver o comparativo.</p>
+  </div>
+</div>
+
+<!-- ═══════════ VENDAS ═══════════ -->
+<div class="page" id="page-vendas">
+  <div class="stitle">📈 Ranking de Vendas <small id="vSub"></small></div>
+  <div class="frow">
+    <input class="fi" type="text" id="vsrch" placeholder="🔍 Buscar produto..." oninput="renderVendas()">
+  </div>
+  <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th style="width:36px">#</th><th>Produto</th><th>Categoria</th>
+        <th>Qtd Vendida</th><th>Cons./mês</th><th>Preço Venda</th>
+        <th style="min-width:70px">Volume</th>
+      </tr></thead>
+      <tbody id="vBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════ ESTOQUE ═══════════ -->
+<div class="page" id="page-estoque">
+  <div class="stitle">📦 Estoque Completo <small id="eSub"></small></div>
+  <div class="frow">
+    <input class="fi" type="text" id="esrch" placeholder="🔍 Buscar produto..." oninput="renderEstoque()">
+    <select class="fi" id="ecat" onchange="renderEstoque()" style="flex:none;min-width:auto">
+      <option value="">Todos os grupos</option>
+    </select>
+    <button class="fb on" id="ef-all" onclick="setEF('all')">Todos</button>
+    <button class="fb"    id="ef-buy" onclick="setEF('buy')">A comprar</button>
+    <button class="fb"    id="ef-ok"  onclick="setEF('ok')">OK</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="tbl">
+      <thead><tr>
+        <th>Produto</th><th>Grupo</th><th>Saldo</th>
+        <th>Necessidade</th><th>Fornecedor</th><th>Preço</th><th>Vendas 30D</th>
+      </tr></thead>
+      <tbody id="eBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- NOTE MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h4 id="mTitle">📝 Observação</h4>
+    <textarea id="mText" placeholder="Obs, fornecedor alternativo, preço..."></textarea>
+    <div class="modal-btns">
+      <button class="btn-g" onclick="closeModal()">Cancelar</button>
+      <button class="btn" onclick="saveNote()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- SheetJS para leitura de Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════
+//  DADOS DA PLANILHA (gerado automaticamente)
+// ═══════════════════════════════════════════════
+const RAW = {"items": [{"produto": "AGUA  MAMBA SEM GAS", "subgrupo": "AGUAS", "saldo": 84.0, "needs_buy": true, "qtd_comprar": 67.06, "fornec1": "AGUA SANTA CLARA", "preco1": 1.0, "fornec2": "", "preco2": 1.1, "obs": "AGUA SANTA CLARA"}, {"produto": "AGUA DE COCO", "subgrupo": "AGUAS", "saldo": 31.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "VILLEFORT", "preco1": 2.38, "fornec2": "", "preco2": 2.4, "obs": "VILLEFORT"}, {"produto": "AGUA MAMBA COM GAS", "subgrupo": "AGUAS", "saldo": 20.0, "needs_buy": true, "qtd_comprar": 53.10333333, "fornec1": "AGUA SANTA CLARA", "preco1": 1.42, "fornec2": "", "preco2": 1.5, "obs": "AGUA SANTA CLARA"}, {"produto": "FYS TONICA 350ML", "subgrupo": "AGUAS", "saldo": 14.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 2.5, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "FYS TONICA ZERO 350ML", "subgrupo": "AGUAS", "saldo": 23.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 2.5, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "AGUA COM GAS BANDA", "subgrupo": "AGUAS", "saldo": 8.0, "needs_buy": true, "qtd_comprar": 15.50833333, "fornec1": "NOVA CINTRA", "preco1": 12.27, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ÁGUA BANDA SEM GÁS", "subgrupo": "AGUAS", "saldo": 9.0, "needs_buy": true, "qtd_comprar": 31.95, "fornec1": "NOVA CINTRA", "preco1": 12.27, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "HALLS", "subgrupo": "BOMBONIERE", "saldo": 12.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 9.49, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CHICLETE TRIDENT", "subgrupo": "BOMBONIERE", "saldo": 26.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 4.35, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CACHAÇA PELICANA - GARRAFA", "subgrupo": "CACHAÇA", "saldo": 20.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 4.19, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CACHAÇA SELETA - GARRAFA", "subgrupo": "CACHAÇA", "saldo": 16.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 12.27, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CERVEJA BADEN BADEN CRISTAL", "subgrupo": "CERVEJAS", "saldo": 19.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 12.27, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CERVEJA BADEN BADEN PEACH", "subgrupo": "CERVEJAS", "saldo": 1.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 5.15, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CERVEJA LAGUNITAS", "subgrupo": "CERVEJAS", "saldo": 212.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 6.09, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "AMSTEL LONG NECK", "subgrupo": "CERVEJAS", "saldo": 62.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 5.49, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "AMSTEL ULTRA 275ML", "subgrupo": "CERVEJAS", "saldo": 88.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 5.49, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "BLUE MOON", "subgrupo": "CERVEJAS", "saldo": 332.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": 9.37, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CERVEJA BADEN AMERICAN IPA", "subgrupo": "CERVEJAS", "saldo": 44.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 7.29, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CERVEJA BADEN BADEN GOLDEN", "subgrupo": "CERVEJAS", "saldo": 47.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 7.29, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "DEVASSA 600ML", "subgrupo": "CERVEJAS", "saldo": 70.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 7.29, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "AMSTEL 600ML", "subgrupo": "CERVEJAS", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 136.3483333, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "HEINEKEN ZERO LONGNECK", "subgrupo": "CERVEJAS", "saldo": 128.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 7.29, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "HEINEKEN LONGNECK", "subgrupo": "CERVEJAS", "saldo": null, "needs_buy": true, "qtd_comprar": 103.5883333, "fornec1": "WYNI", "preco1": 41.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "HEINEKEN 600ML", "subgrupo": "CERVEJAS", "saldo": null, "needs_buy": true, "qtd_comprar": 377.0433333, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "RED BULL LATA - TRADICIONAL", "subgrupo": "ENERGETICOS", "saldo": null, "needs_buy": true, "qtd_comprar": 176.54, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "RED BULL LATA - MELANCIA", "subgrupo": "ENERGETICOS", "saldo": null, "needs_buy": true, "qtd_comprar": 22.59833333, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "RED BULL LATA - TROPICAL", "subgrupo": "ENERGETICOS", "saldo": null, "needs_buy": true, "qtd_comprar": 85.69166667, "fornec1": "JR", "preco1": 20.79, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "RED BULL LATA - FRUTAS VERMELHAS ZERO", "subgrupo": "ENERGETICOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "INOVA", "preco1": 35.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "RED BULL - ZERO", "subgrupo": "ENERGETICOS", "saldo": null, "needs_buy": true, "qtd_comprar": 19.71666667, "fornec1": "INOVA", "preco1": 35.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "BALY TROPICAL", "subgrupo": "ENERGETICOS", "saldo": 4.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 109.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CASA PERINE BRUT ROSE", "subgrupo": "ESPUMANTE", "saldo": 1.0, "needs_buy": true, "qtd_comprar": 0.9716666667, "fornec1": "ADEGA", "preco1": 99.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CASA PERINE MOSCATEL", "subgrupo": "ESPUMANTE", "saldo": null, "needs_buy": true, "qtd_comprar": 3.64, "fornec1": "ADEGA", "preco1": 99.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE LA BARONNE ROSE", "subgrupo": "ESPUMANTES", "saldo": 3.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "MERCADO LIVRE", "preco1": 72.16, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE VEUVE CLICQOT BRUT", "subgrupo": "ESPUMANTES", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "MERCADO LIVRE", "preco1": 129.99, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE MOET E CHANDON BRUT", "subgrupo": "ESPUMANTES", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE JAUME COSTA BRUT", "subgrupo": "ESPUMANTES", "saldo": 1.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "VILLEFORT", "preco1": 46.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE WAVE BRUT BCO", "subgrupo": "ESPUMANTES", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE ALIANCA MOSCATEL ROSE", "subgrupo": "ESPUMANTES", "saldo": 8.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 109.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE ALIANCA BRUT ROSE", "subgrupo": "ESPUMANTES", "saldo": 10.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 74.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE CHANDON PASSION ROSE", "subgrupo": "ESPUMANTES", "saldo": 4.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 84.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE CHANDON BRUT ROSE", "subgrupo": "ESPUMANTES", "saldo": 14.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 84.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ESPUMANTE CHANDON BRUT", "subgrupo": "ESPUMANTES", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 195.5, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "LICOR DOCE DE LEITE DON LUIZ GARRAFA", "subgrupo": "GARRAFAS", "saldo": 1.0, "needs_buy": true, "qtd_comprar": 1.275, "fornec1": "ADEGA", "preco1": 129.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "LICOR MORANGO BALLENA GARRAFA", "subgrupo": "GARRAFAS", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 0.1516666667, "fornec1": "ADEGA", "preco1": 129.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "LICOR 43 GARRAFA", "subgrupo": "GARRAFAS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 129.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CAMPARI GARRAFA", "subgrupo": "GARRAFAS", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 1.061666667, "fornec1": "ADEGA", "preco1": 199.75, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GELO DE COCO", "subgrupo": "GELO", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 36.09666667, "fornec1": "ADEGA", "preco1": 189.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GIN YVY GARRAFA", "subgrupo": "GIN", "saldo": 2.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "MERCADO LIVRE", "preco1": 139.99, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GIN TANQUERAY GARRAFA", "subgrupo": "GIN", "saldo": 5.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 148.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GIN GORDONS GARRAFA", "subgrupo": "GIN", "saldo": 4.0, "needs_buy": true, "qtd_comprar": 1.308333333, "fornec1": "ADEGA", "preco1": 159.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GIN TANQUERAY TEN GARRAFA", "subgrupo": "GIN", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA GERAÇÃO", "preco1": 6.09, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "SPRITE", "subgrupo": "REFRIGERANTE", "saldo": 6.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 178.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "FYS GUARANÁ", "subgrupo": "REFRIGERANTE", "saldo": 5.0, "needs_buy": true, "qtd_comprar": 6.981666667, "fornec1": "INOVA", "preco1": 139.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "FYS GUARANÁ ZERO", "subgrupo": "REFRIGERANTE", "saldo": 3.0, "needs_buy": true, "qtd_comprar": 5.948333333, "fornec1": "NOVA GERAÇÃO", "preco1": 52.96, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "H2O TRADICIONAL", "subgrupo": "REFRIGERANTES", "saldo": 4.0, "needs_buy": true, "qtd_comprar": 9.346666667, "fornec1": "ADEGA", "preco1": 189.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "H2O LIMONETO", "subgrupo": "REFRIGERANTES", "saldo": 1.0, "needs_buy": true, "qtd_comprar": 24.935, "fornec1": "ADEGA", "preco1": 129.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "COCA-COLA 350ml", "subgrupo": "REFRIGERANTES", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 55.81333333, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "XEQUE MATE", "subgrupo": "REFRIGERANTES", "saldo": 1.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 229.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "KUAT 2 LITROS", "subgrupo": "REFRIGERANTES", "saldo": null, "needs_buy": true, "qtd_comprar": 2.578333333, "fornec1": "ADEGA", "preco1": 949.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "FYS LARANJA 350ml", "subgrupo": "REFRIGERANTES", "saldo": 3.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 189.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "FYS LIMAO 350ml", "subgrupo": "REFRIGERANTES", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 1180.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "COCA-COLA ZERO 2 LITROS", "subgrupo": "REFRIGERANTES", "saldo": 2.0, "needs_buy": true, "qtd_comprar": 0.5783333333, "fornec1": "ADEGA", "preco1": 149.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "COCA-COLA 2 LITROS", "subgrupo": "REFRIGERANTES", "saldo": 18.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "VILLEFORT", "preco1": 3.48, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "COCA-COLA ZERO 350ml", "subgrupo": "REFRIGERANTES", "saldo": 0.0, "needs_buy": true, "qtd_comprar": 61.425, "fornec1": "VILLEFORT", "preco1": 3.48, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CLASH'D FRUTAS VERMELHAS E HIBISCO 265ml", "subgrupo": "REFRIGERANTES", "saldo": 50.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA GERAÇÃO", "preco1": 3.17, "fornec2": "VILEFORT", "preco2": 3.38, "obs": ""}, {"produto": "CLASH'D MACA GOLDEN  265ml", "subgrupo": "REFRIGERANTES", "saldo": 13.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 6.49, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CLASH'D LIMAO SICILIANO  265ml", "subgrupo": "REFRIGERANTES", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "ITUBAINA 350ml", "subgrupo": "REFRIGERANTES", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "TEQUILA JOSÉ CUERVO GARRAFA", "subgrupo": "TEQUILA", "saldo": 70.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA GERAÇÃO", "preco1": 3.17, "fornec2": "VILEFORT", "preco2": 3.38, "obs": ""}, {"produto": "JOSE CUERVO OURO", "subgrupo": "TEQUILA", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO ROSE ALORNA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO BRANCO ISLA NEGRA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA CINTRA", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO ARG VINAS DEL TANGO RES MALBEC", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO  CAST DEL LAGO GRAN RES CARME CHI", "subgrupo": "VINHOS", "saldo": 57.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA GERAÇÃO", "preco1": 1.1, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO CHILENO ISLA NEGRA CABERNET", "subgrupo": "VINHOS", "saldo": 10.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "NOVA GERAÇÃO", "preco1": 1.77, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO DV CATENA MALBEC MALBEC", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": 36.5, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO DV CATENA CABERNET MALBEC", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO ROSE EA CARTUXA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": 43.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO CARTUXA MONTE PINHEIROS", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO BRANCO DOÑA DOMINGÁ", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": 30.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO CONDOR CHARDONNAY", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 299.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO PASO DE LOS ANDES", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO  NARRACION CABERNET SAUVIGNON CHI", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO BRANCO FINCA LAS MORAS INTIS CHARDONNAY", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO AROMA PORT", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": 37.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO CASAL GARCIA VERDE", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 1.365, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO COROA DE REI PORT", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO BOIS MIRAIL FRA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO CASAL GARCIA ROSE", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 1.213333333, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO ROSE PORTA 6 PORT", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 39.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO PORTA 6 PORT", "subgrupo": "VINHOS", "saldo": 4.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "Adega", "preco1": 59.0, "fornec2": "Viny", "preco2": 54.0, "obs": ""}, {"produto": "VINHO CASAL GARCIA SWEET BRANCO", "subgrupo": "VINHOS", "saldo": 1.0, "needs_buy": true, "qtd_comprar": 2.185, "fornec1": "ADEGA", "preco1": 59.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO CORDERO CON PIEL DE LOBO MALBEC", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO ROSE CORDERO CON PIEL DE LOBO", "subgrupo": "VINHOS", "saldo": 5.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 59.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO NATURELLE ROSE", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO LLAMA TIVO CABERNET FRANC ARG", "subgrupo": "VINHOS", "saldo": 1.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "WYNI", "preco1": 46.0, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO NATURELLE BCO", "subgrupo": "VINHOS", "saldo": 5.0, "needs_buy": true, "qtd_comprar": 6.0, "fornec1": "WINY", "preco1": 59.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO LA LINDA MALBEC ARG", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "WINY", "preco1": 44.95, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO NATURELLE TINTO", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO AIME MALBEC ARG", "subgrupo": "VINHOS", "saldo": 2.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 64.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO PORTO MESSIAS RUBY PORT", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO PORTO MESSIAS TOWNY PORT", "subgrupo": "VINHOS", "saldo": 0.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 103.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO TNT  ZINFADEL EUA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO TINTO TNT CABERNET SAUVIGNON EUA", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "", "preco1": null, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "Vinho Casal Garcia Sweet Rose", "subgrupo": "VINHOS", "saldo": 2.0, "needs_buy": true, "qtd_comprar": 0.4266666667, "fornec1": "ADEGA", "preco1": 139.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "TRAPICHE MERLOT", "subgrupo": "VINHOS", "saldo": 2.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 139.9, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "TRAPICHE CABERNET SAUVIGNON", "subgrupo": "VINHOS", "saldo": 2.0, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 44.95, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO RESERVADO SPRITZER", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 89.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO FOYE PINOT NOIR", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 0.3033333333, "fornec1": "ADEGA", "preco1": 90.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO FOYE CABERNET SAUVIGNON", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 1.365, "fornec1": "ADEGA", "preco1": 91.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO QUINTA DOS BONS VENTOS TINTO", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 0.3033333333, "fornec1": "ADEGA", "preco1": 92.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VINHO QUINTA DOS BONS VENTOS BCO", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 0.455, "fornec1": "ADEGA", "preco1": 93.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "TRAPICHE ROSE", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 0.3033333333, "fornec1": "ADEGA", "preco1": 94.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "TRAPICHE MALBEC", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 95.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CHAC CHAC MALBEC", "subgrupo": "VINHOS", "saldo": null, "needs_buy": true, "qtd_comprar": 1.061666667, "fornec1": "ADEGA", "preco1": 96.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "CHAC CHAC CABERNET SAUVIGNON", "subgrupo": "VINHOS", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 97.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA ABSOLUT GARRAFA", "subgrupo": "VODKA", "saldo": null, "needs_buy": true, "qtd_comprar": 2.275, "fornec1": "ADEGA", "preco1": 98.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA BELVEDERE GARRAFA", "subgrupo": "VODKA", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 99.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA GREY GOOSE GARRAFA", "subgrupo": "VODKA", "saldo": null, "needs_buy": true, "qtd_comprar": 0.1516666667, "fornec1": "ADEGA", "preco1": 100.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "SMIRNOFF", "subgrupo": "VODKA", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 101.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA KETEL ONE GARRAFA", "subgrupo": "VODKA", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 102.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA CIROC GARRAFA", "subgrupo": "VODKA", "saldo": null, "needs_buy": true, "qtd_comprar": 0.1516666667, "fornec1": "ADEGA", "preco1": 103.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "VODKA CIROC RED BERRY", "subgrupo": "VODKA", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 104.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY RED LABEL GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 105.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY JACK DANIELS HONEY GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 106.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY JACK DANIELS FIRE GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 107.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY JACK DANIELS APPLE GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 108.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY DOUBLE BLACK GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 109.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY JACK DANIELS GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": true, "qtd_comprar": 0.1516666667, "fornec1": "ADEGA", "preco1": 110.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY BLACK LABEL GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": true, "qtd_comprar": 0.3033333333, "fornec1": "ADEGA", "preco1": 111.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY OLD PARR GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": true, "qtd_comprar": 0.1516666667, "fornec1": "ADEGA", "preco1": 112.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY BUCHANANS GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": true, "qtd_comprar": 0.3033333333, "fornec1": "ADEGA", "preco1": 113.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY GENTLEMAN JACK GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 114.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY ROYAL SALUTE GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 115.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY BLUE LABEL GARRAFA", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 116.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "WHISKY JIM BEAM FIRE", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 117.45, "fornec2": "", "preco2": null, "obs": ""}, {"produto": "GOLD LABEL", "subgrupo": "WHISKY", "saldo": null, "needs_buy": false, "qtd_comprar": null, "fornec1": "ADEGA", "preco1": 118.45, "fornec2": "", "preco2": null, "obs": ""}], "vendas": [{"nome": "HEINEKEN 600ML", "qty": 2486.0, "consumo_medio": 1243}, {"nome": "RED BULL LATA - TRADICIONAL", "qty": 1164.0, "consumo_medio": 582}, {"nome": "AGUA  MAMBA SEM GAS", "qty": 996.0, "consumo_medio": 498}, {"nome": "LIMAO CH", "qty": 974.0, "consumo_medio": 487}, {"nome": "AMSTEL 600ML", "qty": 899.0, "consumo_medio": 449.5}, {"nome": "HEINEKEN LONG NECK", "qty": 683.0, "consumo_medio": 341.5}, {"nome": "CAIPIRINHA", "qty": 568.0, "consumo_medio": 284}, {"nome": "RED BULL LATA - TROPICAL", "qty": 565.0, "consumo_medio": 282.5}, {"nome": "CAIPIRINHA EM DOBRO", "qty": 540.0, "consumo_medio": 270}, {"nome": "GIN TROPICAL EM DOBRO", "qty": 532.0, "consumo_medio": 266}, {"nome": "AGUA MAMBA COM GAS", "qty": 482.0, "consumo_medio": 241}, {"nome": "COCA-COLA ZERO 350ml", "qty": 405.0, "consumo_medio": 202.5}, {"nome": "TROPICAL GIN", "qty": 370.0, "consumo_medio": 185}, {"nome": "COCA-COLA 350ml", "qty": 368.0, "consumo_medio": 184}, {"nome": "AGUA SEM GAS BANDA", "qty": 270.0, "consumo_medio": 135}, {"nome": "MORANGO", "qty": 258.0, "consumo_medio": 129}, {"nome": "GELO DE COCO", "qty": 238.0, "consumo_medio": 119}, {"nome": "CAIPVODKA EM DOBRO", "qty": 227.0, "consumo_medio": 113.5}, {"nome": "EVENTO AMSTEL 600ML -", "qty": 217.0, "consumo_medio": 108.5}, {"nome": "LIMAO", "qty": 200.0, "consumo_medio": 100}, {"nome": "CAIPVODKA", "qty": 186.0, "consumo_medio": 93}, {"nome": "MORANGO CH", "qty": 175.0, "consumo_medio": 87.5}, {"nome": "H2O LIMONETO", "qty": 171.0, "consumo_medio": 85.5}, {"nome": "CHOPP HEINEKEN 300ML -", "qty": 164.0, "consumo_medio": 82}, {"nome": "HEINEKEN ZERO LONG NECK", "qty": 163.0, "consumo_medio": 81.5}, {"nome": "AGUA COM GAS  BANDA", "qty": 155.0, "consumo_medio": 77.5}, {"nome": "RED BULL LATA - MELANCIA", "qty": 149.0, "consumo_medio": 74.5}, {"nome": "APEROL SPRITZ", "qty": 147.0, "consumo_medio": 73.5}, {"nome": "AMSTEL LONG NECK", "qty": 146.0, "consumo_medio": 73}, {"nome": "DOSE CAMPARI", "qty": 145.0, "consumo_medio": 72.5}, {"nome": "GIN AURA", "qty": 138.0, "consumo_medio": 69}, {"nome": "BABY CAIP", "qty": 138.0, "consumo_medio": 69}, {"nome": "COPO COM GELO E LIMÃO", "qty": 133.0, "consumo_medio": 66.5}, {"nome": "RED BULL LATA - ZERO", "qty": 130.0, "consumo_medio": 65}, {"nome": "CACHAÇA CURRALEIRA", "qty": 123.0, "consumo_medio": 61.5}, {"nome": "DRINK OFF DIREIT0 -", "qty": 117.0, "consumo_medio": 58.5}, {"nome": "MOSCOW MULE EM DOBRO", "qty": 116.0, "consumo_medio": 58}, {"nome": "MARAMULE EM DOBRO", "qty": 115.0, "consumo_medio": 57.5}, {"nome": "SUCO LARANJA", "qty": 113.0, "consumo_medio": 56.5}, {"nome": "PEDACO DE MAU CAMINHO", "qty": 112.0, "consumo_medio": 56}, {"nome": "DOSE OLD PARR", "qty": 102.0, "consumo_medio": 51}, {"nome": "XEQUE MATE", "qty": 92.0, "consumo_medio": 46}, {"nome": "H2O TRADICIONAL", "qty": 88.0, "consumo_medio": 44}, {"nome": "CHOPP HEINEKEN 300ML -  EM DOBRO", "qty": 86.0, "consumo_medio": 43}, {"nome": "ORANGE APEROL", "qty": 86.0, "consumo_medio": 43}, {"nome": "SODA ITALIANA MORANGO", "qty": 86.0, "consumo_medio": 43}, {"nome": "LIMAO ESPREMIDO", "qty": 85.0, "consumo_medio": 42.5}, {"nome": "JARRA DE SUCO LARANJA 1.2L", "qty": 85.0, "consumo_medio": 42.5}, {"nome": "FRUTAS VERMELHAS", "qty": 83.0, "consumo_medio": 41.5}, {"nome": "EVENTO HEINEKEN 600ML", "qty": 82.0, "consumo_medio": 41}, {"nome": "FYS GUARANA 350ml", "qty": 79.0, "consumo_medio": 39.5}, {"nome": "COZUMEL", "qty": 73.0, "consumo_medio": 36.5}, {"nome": "FRUTAS VERMELHAS CH", "qty": 69.0, "consumo_medio": 34.5}, {"nome": "MOSCOW MULE", "qty": 66.0, "consumo_medio": 33}, {"nome": "MARAMULE", "qty": 65.0, "consumo_medio": 32.5}, {"nome": "AGUA SER SAMBA", "qty": 62.0, "consumo_medio": 31}, {"nome": "COMBO ABSOLUT", "qty": 62.0, "consumo_medio": 31}, {"nome": "SODA ITALIANA MACA VERDE", "qty": 61.0, "consumo_medio": 30.5}, {"nome": "FYS GUARANA ZERO 350ml", "qty": 59.0, "consumo_medio": 29.5}, {"nome": "SUCO MARACUJA", "qty": 53.0, "consumo_medio": 26.5}, {"nome": "COMBO TANQUERAY", "qty": 53.0, "consumo_medio": 26.5}, {"nome": "AMSTEL LONG NECK - BALDE", "qty": 52.0, "consumo_medio": 26}, {"nome": "PRAYA LONG NECK", "qty": 52.0, "consumo_medio": 26}, {"nome": "DOSE JACK DANIELS", "qty": 49.0, "consumo_medio": 24.5}, {"nome": "DOSE RED LABEL", "qty": 47.0, "consumo_medio": 23.5}, {"nome": "DOSE ABSOLUT", "qty": 47.0, "consumo_medio": 23.5}, {"nome": "AGUA TONICA", "qty": 46.0, "consumo_medio": 23}, {"nome": "BABY CAIP - EM DOBRO", "qty": 46.0, "consumo_medio": 23}, {"nome": "EVENTO MOSCOW MULE", "qty": 45.0, "consumo_medio": 22.5}, {"nome": "MARACUJA", "qty": 45.0, "consumo_medio": 22.5}, {"nome": "GIN AURA - DOBRO", "qty": 43.0, "consumo_medio": 21.5}, {"nome": "EVENTO REFRIGERANTE", "qty": 41.0, "consumo_medio": 20.5}, {"nome": "BOURBON PEACH", "qty": 41.0, "consumo_medio": 20.5}, {"nome": "EVENTO CAIPIRINHA", "qty": 39.0, "consumo_medio": 19.5}, {"nome": "PEDACO DE MAU CAMINHO - DOBRO", "qty": 39.0, "consumo_medio": 19.5}, {"nome": "DOSE LICOR MORANGO BALLENA", "qty": 37.0, "consumo_medio": 18.5}, {"nome": "MOJITO VIRGEM", "qty": 36.0, "consumo_medio": 18}, {"nome": "SUCO MORANGO", "qty": 35.0, "consumo_medio": 17.5}, {"nome": "COMBO GORDONS", "qty": 35.0, "consumo_medio": 17.5}, {"nome": "OPEN WINE", "qty": 33.0, "consumo_medio": 16.5}, {"nome": "AGUA DE COCO", "qty": 32.0, "consumo_medio": 16}, {"nome": "BOURBON PEACH - DOBRO", "qty": 32.0, "consumo_medio": 16}, {"nome": "EVENTO SODA ITALIANA  -", "qty": 32.0, "consumo_medio": 16}, {"nome": "SERIGUELA", "qty": 32.0, "consumo_medio": 16}, {"nome": "CACHAÇA SELETA", "qty": 31.0, "consumo_medio": 15.5}, {"nome": "ORANGE APEROL - EVENTO", "qty": 30.0, "consumo_medio": 15}, {"nome": "DOSE BLACK LABEL", "qty": 30.0, "consumo_medio": 15}, {"nome": "GIN TROPICAL RED BULL", "qty": 28.0, "consumo_medio": 14}, {"nome": "MARACUJÁ CH", "qty": 28.0, "consumo_medio": 14}, {"nome": "CERVEJA BADEN CRISTAL", "qty": 27.0, "consumo_medio": 13.5}, {"nome": "CAIPIRISSIMA", "qty": 27.0, "consumo_medio": 13.5}, {"nome": "NEGRONI", "qty": 27.0, "consumo_medio": 13.5}, {"nome": "MOJITO", "qty": 26.0, "consumo_medio": 13}, {"nome": "GIN TONICA - EM DOBRO", "qty": 26.0, "consumo_medio": 13}, {"nome": "AMSTEL ULTRA 275ML", "qty": 25.0, "consumo_medio": 12.5}, {"nome": "EVENTO GIN TROPICAL", "qty": 25.0, "consumo_medio": 12.5}, {"nome": "EVENTO SUCO", "qty": 24.0, "consumo_medio": 12}, {"nome": "ESPUMANTE CASA PERINI  MOSCATEL", "qty": 24.0, "consumo_medio": 12}, {"nome": "EVENTO BABY CAIP", "qty": 23.0, "consumo_medio": 11.5}, {"nome": "MELANCITA", "qty": 22.0, "consumo_medio": 11}, {"nome": "SHOT AURA", "qty": 21.0, "consumo_medio": 10.5}, {"nome": "APEROL SPRITZ - DOBRO", "qty": 21.0, "consumo_medio": 10.5}, {"nome": "SODA ITALIANA  DOBRO", "qty": 21.0, "consumo_medio": 10.5}, {"nome": "SUCO LIMAO", "qty": 21.0, "consumo_medio": 10.5}, {"nome": "CASAL GARCIA SWEET BRANCO", "qty": 21.0, "consumo_medio": 10.5}, {"nome": "ORANGE APEROL - DOBRO", "qty": 20.0, "consumo_medio": 10}, {"nome": "SUCO DE LARANJA COM MORANGO", "qty": 20.0, "consumo_medio": 10}, {"nome": "SODA ITALIANA TANGERINA", "qty": 19.0, "consumo_medio": 9.5}, {"nome": "COCA-COLA 2LT", "qty": 19.0, "consumo_medio": 9.5}, {"nome": "COMBO OLD PARR", "qty": 19.0, "consumo_medio": 9.5}, {"nome": "DOSE LICOR 43", "qty": 18.0, "consumo_medio": 9}, {"nome": "AGUA TONICA ZERO", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "EVENTO MARAMULE", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "CAIPISERIGUELA", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "FITZGERALD - EM DOBRO", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "COCA-COLA ZERO 2LT", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "KUAT 2LT", "qty": 17.0, "consumo_medio": 8.5}, {"nome": "FITZGERALD", "qty": 16.0, "consumo_medio": 8}, {"nome": "CASAL GARCIA SWEET ROSE", "qty": 16.0, "consumo_medio": 8}, {"nome": "DOSE LICOR DOCE LEITE DON LUIZ", "qty": 15.0, "consumo_medio": 7.5}, {"nome": "VODKA ABSOLUT GARRAFA", "qty": 15.0, "consumo_medio": 7.5}, {"nome": "COSMOPOLITAN FIZZ", "qty": 14.0, "consumo_medio": 7}, {"nome": "ALOHA!", "qty": 14.0, "consumo_medio": 7}, {"nome": "CERVEJA BADEN AMERICAN IPA", "qty": 13.0, "consumo_medio": 6.5}, {"nome": "GIN RED BULL TRAD", "qty": 13.0, "consumo_medio": 6.5}, {"nome": "ESPUMANTE CASA PERINI  BRUT ROSE", "qty": 13.0, "consumo_medio": 6.5}, {"nome": "COMBO BLACK LABEL", "qty": 13.0, "consumo_medio": 6.5}, {"nome": "COPO DE GELO", "qty": 12.0, "consumo_medio": 6}, {"nome": "AGUA TONICA ZERO", "qty": 12.0, "consumo_medio": 6}, {"nome": "EVENTO CAIPVODKA", "qty": 12.0, "consumo_medio": 6}, {"nome": "MOJITO - DOBRO", "qty": 12.0, "consumo_medio": 6}, {"nome": "DOSE TANQUERAY", "qty": 12.0, "consumo_medio": 6}, {"nome": "DOSE GORDONS", "qty": 12.0, "consumo_medio": 6}, {"nome": "DOSE TEQUILA JOSE CUERVO OURO", "qty": 12.0, "consumo_medio": 6}, {"nome": "COPO COM GELO E LARANJA", "qty": 11.0, "consumo_medio": 5.5}, {"nome": "COMBO RED LABEL", "qty": 11.0, "consumo_medio": 5.5}, {"nome": "COMBO JACK DANIELS", "qty": 11.0, "consumo_medio": 5.5}, {"nome": "COMBO BUCHANANS", "qty": 11.0, "consumo_medio": 5.5}, {"nome": "EVENTO JARRA AGUA", "qty": 10.0, "consumo_medio": 5}, {"nome": "BELLINI", "qty": 10.0, "consumo_medio": 5}, {"nome": "HEINEKEN 600ML - PROMOCIONAL", "qty": 9.0, "consumo_medio": 4.5}, {"nome": "SERIGUELA CH", "qty": 9.0, "consumo_medio": 4.5}, {"nome": "CASAL GARCIA VINHO VERDE", "qty": 9.0, "consumo_medio": 4.5}, {"nome": "RESERVA FOYE CARBENET", "qty": 9.0, "consumo_medio": 4.5}, {"nome": "DOSE RUM BACARDI", "qty": 9.0, "consumo_medio": 4.5}, {"nome": "GIN TONICA", "qty": 8.0, "consumo_medio": 4}, {"nome": "PAU DE FOGO", "qty": 8.0, "consumo_medio": 4}, {"nome": "CASAL GARCIA ROSE", "qty": 8.0, "consumo_medio": 4}, {"nome": "COSMOPOLITAN FIZZ - DOBRO", "qty": 7.0, "consumo_medio": 3.5}, {"nome": "MOJITO VIRGEM EM DOBRO", "qty": 7.0, "consumo_medio": 3.5}, {"nome": "CHAC CHAC MALBEC ARG", "qty": 7.0, "consumo_medio": 3.5}, {"nome": "CAMPARI GARRAFA", "qty": 7.0, "consumo_medio": 3.5}, {"nome": "CERVEJA BADEN BADEN GOLDEN", "qty": 6.0, "consumo_medio": 3}, {"nome": "CAIPVODKA ABSOLUT", "qty": 6.0, "consumo_medio": 3}, {"nome": "MEIA SETE", "qty": 6.0, "consumo_medio": 3}, {"nome": "NEGRONI - DOBRO", "qty": 6.0, "consumo_medio": 3}, {"nome": "SUCO ABACAXI", "qty": 6.0, "consumo_medio": 3}, {"nome": "COMBO GREY GOOSE", "qty": 6.0, "consumo_medio": 3}, {"nome": "FYS TONICA 350ML", "qty": 5.0, "consumo_medio": 2.5}, {"nome": "GOLD LABEL COMBO", "qty": 5.0, "consumo_medio": 2.5}, {"nome": "COMBO CIROC RED BERRY", "qty": 5.0, "consumo_medio": 2.5}, {"nome": "MOJITO VIRGEM EVENTO", "qty": 4.0, "consumo_medio": 2}, {"nome": "SUCO LARAMORA", "qty": 4.0, "consumo_medio": 2}, {"nome": "EVENTO JARRA AGUA COM GÁS", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "MELANCITA TANQUERAY", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "GIN TANQUERAY RED BULL TRAD", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "MOJITO - EVENTO", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "CAIPIRISSIMA EM DOBRO-", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "ESPUMANTE CHANDON BRUT ROSE", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "QUINTA DE  BONS  VENTOS BRANCO", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "Marcus James Reservado Chardonnay", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "VINHO MERLOT TRAPICHE VINEYARDS", "qty": 3.0, "consumo_medio": 1.5}, {"nome": "COPO QUEBRADO", "qty": 2.0, "consumo_medio": 1}, {"nome": "FYS TONICA ZERO 350ML", "qty": 2.0, "consumo_medio": 1}, {"nome": "CERVEJA BADEN BADEN PEACH", "qty": 2.0, "consumo_medio": 1}, {"nome": "PERAGINGER", "qty": 2.0, "consumo_medio": 1}, {"nome": "PAU DE FOGO - DOBRO", "qty": 2.0, "consumo_medio": 1}, {"nome": "JARRA DE SUCO LIMAO 1.2L", "qty": 2.0, "consumo_medio": 1}, {"nome": "LAS PERDICES CABERNET SAUVIGNON", "qty": 2.0, "consumo_medio": 1}, {"nome": "QUINTA DOS BONS VENTOS TINTO", "qty": 2.0, "consumo_medio": 1}, {"nome": "FOYE PINOT NOIR  TINTO", "qty": 2.0, "consumo_medio": 1}, {"nome": "VINHO CARBENET SAUVIGNON TRAPICHE VINEYARDS", "qty": 2.0, "consumo_medio": 1}, {"nome": "VINHO ROSÉ TRAPICHE VINEYARDS", "qty": 2.0, "consumo_medio": 1}, {"nome": "WHISKY BLACK LABEL GARRAFA", "qty": 2.0, "consumo_medio": 1}, {"nome": "WHISKY BUCHANANS GARRAFA", "qty": 2.0, "consumo_medio": 1}, {"nome": "CHOPP HEINEKEN - EVENTO", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "PINA DESCOLADA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "ESPUMANTE CHANDON PASSION ROSE", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "SUCO ABACAXI COM HORTELA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "JARRA DE SUCO ABACAXI 1.2L", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "PORTA 6 TINTO", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "METROPOLITANO CARMENERE", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "GENTLEMAN JACK COMBO", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "DOSE CACHAÇA RIOPARDINHA - DOCE DE LEITE", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "GIN GORDONS GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "VODKA CIROC GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "WHISKY OLD PARR GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "WHISKY JACK DANIELS GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "LICOR 43 GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "VODKA GREY GOOSE GARRAFA", "qty": 1.0, "consumo_medio": 0.5}, {"nome": "LICOR MORANGO BALLENA GARRAFA", "qty": 1.0, "consumo_medio": 0.5}], "cotacoes": [{"cat": "AGUAS", "produto": "AGUA  MAMBA SEM GAS", "precos": {"Nova Cintra": 2.0}}, {"cat": "AGUAS", "produto": "AGUA DE COCO", "precos": {"Villefort": 2.38}}, {"cat": "AGUAS", "produto": "AGUA MAMBA COM GAS", "precos": {"Nova Cintra": 2.0}}, {"cat": "AGUAS", "produto": "REFR FYS TONICA 350ML", "precos": {"Nova Cintra": 3.075}}, {"cat": "AGUAS", "produto": "REFR FYS TONICA ZERO 350ML", "precos": {"Nova Cintra": 3.075}}, {"cat": "AGUAS", "produto": "ÁGUA BANDA COM GÁS", "precos": {"Santa Clara": 1.5, "Pura da Serra": 1.83}}, {"cat": "AGUAS", "produto": "ÁGUA BANDA SEM GÁS", "precos": {"Santa Clara": 1.0, "Pura da Serra": 1.08}}, {"cat": "BOMBONIERE", "produto": "HALLS", "precos": {}}, {"cat": "BOMBONIERE", "produto": "CHICLETE TRIDENT", "precos": {"Nova Geração": 1.86}}, {"cat": "CACHAÇA", "produto": "CACHAÇA PELICANA - GARRAFA", "precos": {}}, {"cat": "CACHAÇA", "produto": "CACHAÇA SELETA - GARRAFA", "precos": {}}, {"cat": "CERVEJAS", "produto": "CERVEJA BADEN BADEN CRISTAL", "precos": {"Nova Cintra": 12.98}}, {"cat": "CERVEJAS", "produto": "CERVEJA BADEN BADEN PEACH", "precos": {"Nova Cintra": 12.98}}, {"cat": "CERVEJAS", "produto": "CERVEJA LAGUNITAS", "precos": {"Nova Cintra": 10.15}}, {"cat": "CERVEJAS", "produto": "AMSTEL LONG NECK", "precos": {"Nova Cintra": 4.46}}, {"cat": "CERVEJAS", "produto": "AMSTEL ULTRA", "precos": {"Nova Cintra": 4.46}}, {"cat": "CERVEJAS", "produto": "BLUE MOON", "precos": {"Nova Cintra": 10.14}}, {"cat": "CERVEJAS", "produto": "CERVEJA BADEN AMERICAN IPA", "precos": {"Nova Cintra": 13.0}}, {"cat": "CERVEJAS", "produto": "CERVEJA BADEN BADEN GOLDEN", "precos": {"Nova Cintra": 13.0}}, {"cat": "CERVEJAS", "produto": "DEVASSA 600ML", "precos": {}}, {"cat": "CERVEJAS", "produto": "AMSTEL 600ML", "precos": {"Nova Cintra": 6.27}}, {"cat": "CERVEJAS", "produto": "HEINEKEN ZERO LONGNECK", "precos": {"Nova Cintra": 6.41}}, {"cat": "CERVEJAS", "produto": "HEINEKEN LONGNECK", "precos": {"Nova Cintra": 6.38}}, {"cat": "CERVEJAS", "produto": "HEINEKEN 600ML", "precos": {"Nova Cintra": 9.76}}, {"cat": "ENERGETICOS", "produto": "RED BULL LATA - TRADICIONAL", "precos": {"Adega de Minas": 7.69, "Villefort": 7.38}}, {"cat": "ENERGETICOS", "produto": "RED BULL LATA - MELANCIA", "precos": {"Adega de Minas": 7.69, "Villefort": 7.98}}, {"cat": "ENERGETICOS", "produto": "RED BULL LATA - TROPICAL", "precos": {"Adega de Minas": 7.69, "Villefort": 7.98}}, {"cat": "ENERGETICOS", "produto": "RED BULL LATA - FRUTAS VERMELHAS ZERO", "precos": {"Adega de Minas": 7.69, "Villefort": 7.98}}, {"cat": "ENERGETICOS", "produto": "RED BULL - ZERO", "precos": {"Adega de Minas": 7.69, "Villefort": 7.98}}, {"cat": "ENERGETICOS", "produto": "BALY TROPICAL", "precos": {"Adega de Minas": 8.49}}, {"cat": "ESPUMANTE", "produto": "CASA PERINE BRUT ROSE", "precos": {"Adega de Minas": 49.9}}, {"cat": "ESPUMANTE", "produto": "CASA PERINE MOSCATEL", "precos": {"Adega de Minas": 49.9}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE LA BARONNE ROSE", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE VEUVE CLICQOT BRUT", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE MOET E CHANDON BRUT", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE JAUME COSTA BRUT", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE WAVE BRUT BCO", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE ALIANCA MOSCATEL ROSE", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE ALIANCA BRUT ROSE", "precos": {}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE CHANDON PASSION ROSE", "precos": {"Adega de Minas": 104.9}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE CHANDON BRUT ROSE", "precos": {"Adega de Minas": 104.9}}, {"cat": "ESPUMANTES", "produto": "ESPUMANTE CHANDON BRUT", "precos": {"Adega de Minas": 104.9}}, {"cat": "GARRAFAS", "produto": "LICOR DOCE DE LEITE DON LUIZ GARRAFA", "precos": {}}, {"cat": "GARRAFAS", "produto": "LICOR MORANGO BALLENA GARRAFA", "precos": {"Mercado Livre": 99.9}}, {"cat": "GARRAFAS", "produto": "LICOR 43 GARRAFA", "precos": {}}, {"cat": "GARRAFAS", "produto": "CAMPARI GARRAFA", "precos": {"Adega de Minas": 59.9}}, {"cat": "GELO", "produto": "GELO DE COCO", "precos": {"Adega de Minas": 2.99}}, {"cat": "GIN", "produto": "GIN YVY GARRAFA", "precos": {}}, {"cat": "GIN", "produto": "GIN TANQUERAY GARRAFA", "precos": {"Inova": 97.9, "Adega de Minas": 109.9}}, {"cat": "GIN", "produto": "GIN GORDONS GARRAFA", "precos": {"Inova": 59.9, "Adega de Minas": 66.9}}, {"cat": "GIN", "produto": "GIN TANQUERAY TEN GARRAFA", "precos": {"Inova": 129.9}}, {"cat": "REFRIGERANTE", "produto": "SPRITE", "precos": {"Adega de Minas": 10.9, "Villefort": 8.98}}, {"cat": "REFRIGERANTE", "produto": "FYS GUARANÁ", "precos": {"Nova Cintra": 2.99}}, {"cat": "REFRIGERANTE", "produto": "FYS GUARANÁ ZERO", "precos": {"Nova Cintra": 2.99}}, {"cat": "REFRIGERANTES", "produto": "H2O TRADICIONAL", "precos": {"Adega de Minas": 4.99, "Villefort": 3.98}}, {"cat": "REFRIGERANTES", "produto": "H2O LIMONETO", "precos": {"Adega de Minas": 5.99, "Villefort": 3.98}}, {"cat": "REFRIGERANTES", "produto": "COCA-COLA 350ml", "precos": {"Nova Geração": 3.5}}, {"cat": "REFRIGERANTES", "produto": "XEQUE MATE", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "KUAT 2 LITROS", "precos": {"Nova Geração": 5.46}}, {"cat": "REFRIGERANTES", "produto": "FYS LARANJA 350ml", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "FYS LIMAO 350ml", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "COCA-COLA ZERO 2 LITROS", "precos": {"Nova Geração": 9.98}}, {"cat": "REFRIGERANTES", "produto": "COCA-COLA 2 LITROS", "precos": {"Nova Geração": 9.98}}, {"cat": "REFRIGERANTES", "produto": "COCA-COLA ZERO 350ml", "precos": {"Nova Geração": 3.5}}, {"cat": "REFRIGERANTES", "produto": "CLASH'D FRUTAS VERMELHAS E HIBISCO 265ml", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "CLASH'D MACA GOLDEN  265ml", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "CLASH'D LIMAO SICILIANO  265ml", "precos": {}}, {"cat": "REFRIGERANTES", "produto": "ITUBAINA 350ml", "precos": {}}, {"cat": "TEQUILA", "produto": "TEQUILA JOSÉ CUERVO GARRAFA", "precos": {"Adega de Minas": 134.9}}, {"cat": "TEQUILA", "produto": "JOSE CUERVO OURO", "precos": {"Adega de Minas": 134.9}}, {"cat": "VINHOS", "produto": "VINHO ROSE ALORNA", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO BRANCO ISLA NEGRA", "precos": {"Vine Wine": 41.0}}, {"cat": "VINHOS", "produto": "VINHO TINTO ARG VINAS DEL TANGO RES MALBEC", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO  CAST DEL LAGO GRAN RES CARME CHI", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO CHILENO ISLA NEGRA CABERNET", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO DV CATENA MALBEC MALBEC", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO DV CATENA CABERNET MALBEC", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO ROSE EA CARTUXA", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO CARTUXA MONTE PINHEIROS", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO BRANCO DOÑA DOMINGÁ", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO CONDOR CHARDONNAY", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO PASO DE LOS ANDES", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO  NARRACION CABERNET SAUVIGNON CHI", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO BRANCO FINCA LAS MORAS INTIS CHARDONNAY", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO AROMA PORT", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO CASAL GARCIA VERDE", "precos": {"Adega de Minas": 55.9}}, {"cat": "VINHOS", "produto": "VINHO TINTO COROA DE REI PORT", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO BOIS MIRAIL FRA", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO CASAL GARCIA ROSE", "precos": {"Adega de Minas": 59.9}}, {"cat": "VINHOS", "produto": "VINHO ROSE PORTA 6 PORT", "precos": {"Adega de Minas": 72.9, "Vine Wine": 45.0}}, {"cat": "VINHOS", "produto": "VINHO TINTO PORTA 6 PORT", "precos": {"Adega de Minas": 72.9, "Vine Wine": 45.0}}, {"cat": "VINHOS", "produto": "VINHO CASAL GARCIA SWEET BRANCO", "precos": {"Adega de Minas": 55.9}}, {"cat": "VINHOS", "produto": "VINHO TINTO CORDERO CON PIEL DE LOBO MALBEC", "precos": {"Vine Wine": 51.0}}, {"cat": "VINHOS", "produto": "VINHO ROSE CORDERO CON PIEL DE LOBO", "precos": {"Vine Wine": 51.0}}, {"cat": "VINHOS", "produto": "VINHO NATURELLE ROSE", "precos": {"Adega de Minas": 69.9}}, {"cat": "VINHOS", "produto": "VINHO TINTO LLAMA TIVO CABERNET FRANC ARG", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO NATURELLE BCO", "precos": {"Adega de Minas": 69.9}}, {"cat": "VINHOS", "produto": "VINHO TINTO LA LINDA MALBEC ARG", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO NATURELLE TINTO", "precos": {"Adega de Minas": 69.9}}, {"cat": "VINHOS", "produto": "VINHO TINTO AIME MALBEC ARG", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO PORTO MESSIAS RUBY PORT", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO PORTO MESSIAS TOWNY PORT", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO TNT  ZINFADEL EUA", "precos": {}}, {"cat": "VINHOS", "produto": "VINHO TINTO TNT CABERNET SAUVIGNON EUA", "precos": {}}, {"cat": "VINHOS", "produto": "Vinho Casal Garcia Sweet Rose", "precos": {"Adega de Minas": 55.9}}, {"cat": "VINHOS", "produto": "TRAPICHE MERLOT", "precos": {"Adega de Minas": 42.9}}, {"cat": "VINHOS", "produto": "TRAPICHE CABERNET SAUVIGNON", "precos": {"Adega de Minas": 42.9}}, {"cat": "VINHOS", "produto": "VINHO RESERVADO SPRITZER", "precos": {"Adega de Minas": 26.9}}, {"cat": "VINHOS", "produto": "VINHO RESERVADO SWEET", "precos": {"Adega de Minas": 26.9}}, {"cat": "VINHOS", "produto": "VINHO FOYE PINOT NOIR", "precos": {"Adega de Minas": 28.9}}, {"cat": "VINHOS", "produto": "VINHO FOYE CABERNET SAUVIGNON", "precos": {"Adega de Minas": 28.9}}, {"cat": "VINHOS", "produto": "VINHO QUINTA DOS BONS VENTOS TINTO", "precos": {"Adega de Minas": 49.9}}, {"cat": "VINHOS", "produto": "VINHO QUINTA DOS BONS VENTOS BCO", "precos": {"Adega de Minas": 49.9}}, {"cat": "VINHOS", "produto": "TRAPICHE ROSE", "precos": {"Adega de Minas": 40.9}}, {"cat": "VINHOS", "produto": "TRAPICHE MALBEC", "precos": {"Adega de Minas": 40.9}}, {"cat": "VINHOS", "produto": "CHAC CHAC MALBEC", "precos": {"Adega de Minas": 45.9}}, {"cat": "VINHOS", "produto": "CHAC CHAC CABERNET SAUVIGNON", "precos": {"Adega de Minas": 45.9}}, {"cat": "VODKA", "produto": "VODKA ABSOLUT GARRAFA", "precos": {"Adega de Minas": 84.9}}, {"cat": "VODKA", "produto": "VODKA BELVEDERE GARRAFA", "precos": {}}, {"cat": "VODKA", "produto": "VODKA GREY GOOSE GARRAFA", "precos": {"Adega de Minas": 149.9}}, {"cat": "VODKA", "produto": "SMIRNOFF", "precos": {"Inova": 33.9}}, {"cat": "VODKA", "produto": "VODKA KETEL ONE GARRAFA", "precos": {}}, {"cat": "VODKA", "produto": "VODKA CIROC GARRAFA", "precos": {"Inova": 169.9}}, {"cat": "VODKA", "produto": "VODKA CIROC RED BERRY", "precos": {"Inova": 185.66}}, {"cat": "WHISKY", "produto": "WHISKY RED LABEL GARRAFA", "precos": {"Inova": 79.9, "Adega de Minas": 89.9}}, {"cat": "WHISKY", "produto": "WHISKY JACK DANIELS HONEY GARRAFA", "precos": {"Inova": 125.9, "Adega de Minas": 129.9}}, {"cat": "WHISKY", "produto": "WHISKY JACK DANIELS FIRE GARRAFA", "precos": {"Inova": 125.9, "Adega de Minas": 129.9}}, {"cat": "WHISKY", "produto": "WHISKY JACK DANIELS APPLE GARRAFA", "precos": {"Inova": 125.9, "Adega de Minas": 129.9}}, {"cat": "WHISKY", "produto": "WHISKY DOUBLE BLACK GARRAFA", "precos": {"Inova": 195.9}}, {"cat": "WHISKY", "produto": "WHISKY JACK DANIELS GARRAFA", "precos": {"Inova": 125.9, "Adega de Minas": 129.9}}, {"cat": "WHISKY", "produto": "WHISKY BLACK LABEL GARRAFA", "precos": {"Inova": 159.9, "Adega de Minas": 175.9}}, {"cat": "WHISKY", "produto": "WHISKY OLD PARR GARRAFA", "precos": {"Inova": 149.9, "Adega de Minas": 169.9}}, {"cat": "WHISKY", "produto": "WHISKY BUCHANANS GARRAFA", "precos": {"Inova": 169.9}}, {"cat": "WHISKY", "produto": "WHISKY GENTLEMAN JACK GARRAFA", "precos": {"Inova": 199.9}}, {"cat": "WHISKY", "produto": "WHISKY ROYAL SALUTE GARRAFA", "precos": {}}, {"cat": "WHISKY", "produto": "WHISKY BLUE LABEL GARRAFA", "precos": {"Inova": 1359.9}}, {"cat": "WHISKY", "produto": "WHISKY JIM BEAM FIRE", "precos": {}}, {"cat": "WHISKY", "produto": "GOLD LABEL", "precos": {"Adega de Minas": 219.9}}, {"cat": "", "produto": "BACARDI", "precos": {"Adega de Minas": 48.9}}], "fornecedores": ["Nova Cintra", "Nova Geração", "Inova", "Adega de Minas", "Villefort", "Mart Minas", "Vine Wine", "Mercado Livre", "Santa Clara", "Pura da Serra"], "precos_bar": {"AGUA CRYSTAL SEM GAS": 1.0, "AGUA DE COCO": 2.18, "AGUA TONICA": 2.98, "AGUA TONICA ZERO": 2.98, "AGUA CRYSTAL COM GAS": 1.41, "REFR FYS TONICA 350ML": 0.0, "REFR FYS TONICA ZERO 350ML": 0.0, "CERVEJA BADEN BADEN CRISTAL": 12.74, "CERVEJA BADEN BADEN PEACH": 0.0, "CERVEJA LAGUNITAS": 0.0, "AMSTEL LONG NECK": 4.34, "AMSTEL ULTRA 275ML": 4.19, "CERVEJA BADEN BADEN WITBIER": 0.0, "CERVEJA BADEN AMERICAN IPA": 12.8, "CERVEJA BADEN BADEN GOLDEN": 12.8, "DEVASSA 600ML": 5.15, "AMSTEL 600ML": 6.09, "HEINEKEN ZERO LONGNECK": 6.15, "HEINEKEN LONGNECK": 6.15, "HEINEKEN 600ML": 9.36, "RED BULL LATA - TRADICIONAL": 7.29, "RED BULL LATA - MELANCIA": 7.29, "RED BULL LATA - TROPICAL": 7.29, "RED BULL LATA - AÇAI": 0.0, "RED BULL - ZERO": 0.0, "ESPUMANTE LA BARONNE ROSE": 0.0, "ESPUMANTE VEUVE CLICQOT BRUT": 0.0, "ESPUMANTE MOET E CHANDON BRUT": 0.0, "ESPUMANTE JAUME COSTA BRUT": 0.0, "ESPUMANTE WAVE BRUT BCO": 24.9, "ESPUMANTE ALIANCA MOSCATEL ROSE": 35.9, "ESPUMANTE ALIANCA BRUT ROSE": 35.9, "ESPUMANTE CHANDON PASSION ROSE": 114.9, "ESPUMANTE CHANDON BRUT ROSE": 119.9, "ESPUMANTE CHANDON BRUT": 119.9, "LICOR DOCE DE LEITE DON LUIZ GARRAFA": 68.66, "LICOR 43 CHOCOLATE GARRAFA": 148.9, "LICOR MORANGO BALLENA GARRAFA": 107.0, "CACHAÇA PELICANA - GARRAFA": 0.0, "CACHAÇA SELETA - GARRAFA": 49.9, "GIN YVY GARRAFA": 0.0, "GIN TANQUERAY GARRAFA": 104.9, "GIN GORDONS GARRAFA": 74.9, "WHISKY RED LABEL GARRAFA": 80.0, "VODKA ABSOLUT GARRAFA": 89.9, "GIN TANQUERAY TEN GARRAFA": 229.9, "WHISKY JACK DANIELS HONEY GARRAFA": 149.8, "WHISKY JACK DANIELS FIRE GARRAFA": 129.9, "WHISKY JACK DANIELS APPLE GARRAFA": 129.9, "WHISKY DOUBLE BLACK GARRAFA": 142.9, "VODKA BELVEDERE GARRAFA": 199.9, "LICOR 43 GARRAFA": 148.9, "WHISKY JACK DANIELS GARRAFA": 144.9, "VODKA GREY GOOSE GARRAFA": 149.9, "SMIRNOFF ICE GARRAFA": 0.0, "WHISKY BLACK LABEL GARRAFA": 144.9, "WHISKY OLD PARR GARRAFA": 149.9, "CAMPARI GARRAFA": 52.95, "TEQUILA JOSÉ CUERVO GARRAFA": 135.9, "VODKA KETEL ONE GARRAFA": 0.0, "WHISKY GENTLEMAN JACK GARRAFA": 229.8, "WHISKY ROYAL SALUTE GARRAFA": 990.0, "VODKA CIROC GARRAFA": 189.9, "WHISKY BLUE LABEL GARRAFA": 990.0, "WHISKY JIM BEAM FIRE 1 LT - ESTOQUE": 119.0, "GUARANA ANTARCTICA": 2.98, "GUARANA ANTARCTICA ZERO": 2.98, "H2O TRADICIONAL": 3.58, "H2O LIMONETO": 3.58, "COCA-COLA 350ml": 2.98, "SPRITE": 2.98, "FYS GUARANA 350ml": 0.0, "FYS LARANJA 350ml": 0.0, "FYS LIMAO 350ml": 0.0, "COCA-COLA ZERO 350ml": 2.98, "CLASH'D FRUTAS VERMELHAS E HIBISCO 265ml": 0.0, "CLASH'D MACA GOLDEN  265ml": 0.0, "CLASH'D LIMAO SICILIANO  265ml": 0.0, "ITUBAINA 350ml": 0.0, "POD IGNITE V80": 0.0, "POD OXBAR": 0.0, "POD IGNITE V15": 125.0, "VINHO ROSE ALORNA": 36.5, "VINHO BRANCO ISLA NEGRA": 0.0, "VINHO TINTO ARG VINAS DEL TANGO RES MALBEC": 43.0, "VINHO TINTO  CAST DEL LAGO GRAN RES CARME CHI": 0.0, "VINHO TINTO CHILENO ISLA NEGRA CABERNET": 0.0, "VINHO DV CATENA MALBEC MALBEC": 0.0, "VINHO DV CATENA CABERNET MALBEC": 0.0, "VINHO ROSE EA CARTUXA": 0.0, "VINHO CARTUXA COLHEITA TINTO": 0.0, "VINHO BRANCO DOÑA DOMINGÁ": 37.0, "VINHO CONDOR CHARDONNAY": 0.0, "VINHO CLOS APALTA": 0.0, "VINHO TINTO PASO DE LOS ANDES": 0.0, "VINHO BRANCO CITY NOBLE SAUVIGNON": 0.0, "VINHO TINTO  NARRACION CABERNET SAUVIGNON CHI": 0.0, "VINHO TINTO FINCA LAS MORAS INTIS MALBEC ARG": 0.0, "VINHO BRANCO FINCA LAS MORAS INTIS CHARDONNAY": 0.0, "VINHO TINTO SANTA ALBA": 38.0, "VINHO VERDE CASAL GARCIA  PORT": 54.0, "VINHO TINTO COROA DE REI PORT": 0.0, "VINHO TINTO BOIS MIRAIL FRA": 0.0, "VINHO CASAL GARCIA ROSE": 54.0, "VINHO ROSE PORTA 6 PORT": 0.0, "VINHO TINTO PORTA 6 PORT": 45.0, "VINHO CASAL GARCIA SWEET PORT": 54.0, "VINHO TINTO CORDERO CON PIEL DE LOBO MALBEC": 0.0, "VINHO ROSE CORDERO CON PIEL DE LOBO": 44.95, "VINHO TINTO ALTO MADERO RESERVA CARMENERE CHI": 0.0, "VINHO TINTO MONTE DE PINHEIROS": 46.0, "VINHO TINTO LLAMA TIVO CABERNET FRANC ARG": 0.0, "VINHO TINTO CASA VALDUGA NATURELLE RESERVA BRA": 0.0, "VINHO TINTO  TERRANOBLE ESTATE RESERVA CABERNET SAUVIGNON CHI": 0.0, "VINHO BRANCO TERRANOBLE ESTATE RESERVE SAUVIGNON BLANC CHI": 0.0, "VINHO ROSE ARTERO TEMPRANILLO ESP": 0.0, "VINHO TINTO LA LINDA MALBEC ARG": 0.0, "VINHO TINTO AIME MALBEC ARG": 0.0, "VINHO TINTO PORTO MESSIAS RUBY PORT": 0.0, "VINHO TINTO PORTO MESSIAS TOWNY PORT": 0.0, "VINHO TINTO TNT  ZINFADEL EUA": 0.0, "VINHO TINTO TNT CABERNET SAUVIGNON EUA": 0.0, "VINHO TINTO MIOLO RESERVA MALBEC BRA": 0.0, "VINHO TINTO CSL CONFIDENCIAL PORT": 0.0, "VINHO TINTO MERLOT TERRANOBLE ESTATE RESERVE": 0.0, "VINHO TINTO CAPE ELEPHANT PINOTAGE AFR": 0.0, "SMIRNOFF": 31.9, "H2O 1L": 6.99, "SPRITE 2L": 6.98, "GIN ROCKS": 29.9, "APEROL": 59.9, "BACARDI": 49.9, "MALIBU": 59.9, "CONCENTRADO ABACAXI": 9.63, "MONIN FRUTAS VERMELHAS": 59.9, "MONIN TANGERINA": 59.9, "MONIN MORANGO": 59.9, "MONIN FRAMBOESA": 0.0, "CURACAO BLUE": 59.9, "MONIN MACA VERDE": 59.9, "MONIN KIWI": 59.9, "ANGOSTURA": 108.5, "CAPSULA GAS": 19.6, "EMULSIFICANTE": 59.9, "ACUCAR REFINADO": 4.29, "LEITE DE COCO": 6.89, "CURACAO SEC": 59.9, "XEQUE MATE": 3.99}};
+
+const ICONS = {
+  AGUAS:'💧',BOMBONIERE:'🍬','CACHAÇA':'🍶',CERVEJAS:'🍺',
+  ENERGETICOS:'⚡',ESPUMANTE:'🥂',ESPUMANTES:'🥂',GARRAFAS:'🍾',
+  GELO:'🧊',GIN:'🫙',REFRIGERANTE:'🥤',REFRIGERANTES:'🥤',
+  TEQUILA:'🥃',VINHOS:'🍷',VODKA:'🍸',WHISKY:'🥃',
+};
+
+// ═══ ESTADO (Firebase sincroniza) ═══
+window.statuses    = {};
+window.notes       = {};
+window.extraQuotes = [];
+const collapsed    = JSON.parse(localStorage.getItem('col')||'{}');
+let apiKey         = localStorage.getItem('ak')||'';
+let filter  = 'all';
+let eFilter = 'all';
+let modalId = null;
+let upFiles = [];
+let pendExt = null;
+
+// Expõe callbacks pro Firebase module
+window._rc = ()=>renderCompras();
+window._rq = ()=>renderCotacoes();
+
+// ═══ UTILITÁRIOS ═══
+const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+function sameProduct(a,b){
+  const clean = s => norm(s)
+    .replace(/\b(garrafa|combo|lata|fardo|kit|cx|caixa|pct|pacote|bottle|und|evento)\b/g,'')
+    .replace(/\s+/g,' ').trim();
+  const ca=clean(a), cb=clean(b);
+  if(ca===cb) return true;
+  if(ca.length>4 && cb.includes(ca)) return true;
+  if(cb.length>4 && ca.includes(cb)) return true;
+  return false;
+}
+
+function e(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;') }
+
+async function fbSave(col, val){
+  if(window._save) await window._save(col, val);
+}
+
+// ═══ NAV ═══
+function goPage(id, el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('page-'+id).classList.add('on');
+  el.classList.add('on');
+  if(id==='cotacoes') renderCotacoes();
+  if(id==='vendas')   renderVendas();
+  if(id==='estoque')  renderEstoque();
+}
+
+// ═══ COMPRAS ═══
+function setF(f){
+  filter=f;
+  ['all','pending','bought','received'].forEach(k=>
+    document.getElementById('f'+k[0]).classList.toggle('on',k===f));
+  renderCompras();
+}
+
+function renderCompras(){
+  const items = RAW.items.filter(i=>i.needs_buy);
+  const q = norm(document.getElementById('csrch').value||'');
+
+  const vis = items.filter(it=>{
+    const st = window.statuses[it.produto]||'pending';
+    const mf = filter==='all'||st===filter;
+    const mq = !q||norm(it.produto).includes(q)||norm(it.fornec1||'').includes(q)||norm(it.subgrupo||'').includes(q);
+    return mf && mq;
+  });
+
+  // Stats
+  const tot  = items.length;
+  const buy  = items.filter(i=>window.statuses[i.produto]==='bought').length;
+  const recv = items.filter(i=>window.statuses[i.produto]==='received').length;
+  const pend = tot - buy - recv;
+  const pct  = tot ? Math.round((buy+recv)/tot*100) : 0;
+  document.getElementById('sT').textContent=tot;
+  document.getElementById('sP').textContent=pend;
+  document.getElementById('sB').textContent=buy;
+  document.getElementById('sR').textContent=recv;
+  document.getElementById('pFill').style.width=pct+'%';
+  document.getElementById('pPct').textContent=pct+'%';
+
+  // Group by cat
+  const cats={};
+  vis.forEach(it=>{ const c=it.subgrupo||'GERAL'; (cats[c]=cats[c]||[]).push(it); });
+
+  const el = document.getElementById('clist');
+  if(!Object.keys(cats).length){
+    el.innerHTML='<div class="empty"><div class="ei">🔍</div><h3>Nenhum item</h3><p>Tente outro filtro.</p></div>';
+    return;
+  }
+
+  el.innerHTML = Object.keys(cats).sort().map(cat=>{
+    const ci   = cats[cat];
+    const done = ci.filter(i=>window.statuses[i.produto]==='bought'||window.statuses[i.produto]==='received').length;
+    const cpct = ci.length ? Math.round(done/ci.length*100) : 0;
+    const icon = ICONS[cat]||'📦';
+    const open = !collapsed[cat];
+    return `<div class="cat-block">
+  <div class="cat-head" onclick="togCat('${e(cat)}')">
+    <div class="ch-l"><span class="cat-icon">${icon}</span><span class="cat-name">${cat}</span></div>
+    <div class="ch-r">
+      <span style="color:${cpct===100?'var(--green)':'var(--muted)'}">${done}/${ci.length}</span>
+      <span class="cat-chev ${open?'open':''}">▼</span>
+    </div>
+  </div>
+  <div class="cat-bar"><div class="cat-bar-fill" style="width:${cpct}%"></div></div>
+  <div class="cat-items ${open?'':'closed'}">${ci.map(it=>rowHTML(it)).join('')}</div>
+</div>`;
+  }).join('');
+}
+
+function rowHTML(it){
+  const id  = it.produto;
+  const st  = window.statuses[id]||'pending';
+  const nt  = window.notes[id]||'';
+  const cls = st==='bought'?'bought':st==='received'?'received':'';
+  const cc  = st==='bought'?'ck-buy':st==='received'?'ck-recv':'';
+  const ct  = st==='bought'?'✓':st==='received'?'✓✓':'';
+  const tags=[];
+  if(it.fornec1) tags.push(`<span class="tag t-sup">🏪 ${it.fornec1}</span>`);
+  if(it.preco1)  tags.push(`<span class="tag t-prc">💰 R$ ${it.preco1.toFixed(2)}</span>`);
+  if(it.fornec2&&it.preco2) tags.push(`<span class="tag t-sup" style="opacity:.65">🏪 ${it.fornec2} R$${it.preco2.toFixed(2)}</span>`);
+  if(it.saldo!=null) tags.push(`<span class="tag t-sld">Saldo: ${Math.round(it.saldo)}</span>`);
+  if(it.obs) tags.push(`<span class="tag t-obs">💬 ${it.obs}</span>`);
+  if(nt)     tags.push(`<span class="tag t-obs">📝 ${nt.substring(0,26)}${nt.length>26?'…':''}</span>`);
+  const v = RAW.vendas.find(v=>sameProduct(v.nome,id));
+  if(v?.consumo_medio) tags.push(`<span class="tag t-vtag">📈 ${v.consumo_medio}/mês</span>`);
+  const qtd = it.qtd_comprar;
+  const qd  = typeof qtd==='number' ? Math.ceil(qtd) : (qtd||'—');
+  return `<div class="irow ${cls}">
+  <div class="chk ${cc}" onclick="cycle('${e(id)}')">${ct}</div>
+  <div class="iinfo">
+    <div class="iname">${it.produto}</div>
+    <div class="itags">${tags.join('')}</div>
+  </div>
+  <div class="iqty"><b>${qd}</b><small>unid.</small></div>
+  <div class="iacts">
+    <button class="abtn ab-buy ${st==='bought'?'on':''}"  onclick="setSt('${e(id)}','bought')">Comprado</button>
+    <button class="abtn ab-recv ${st==='received'?'on':''}" onclick="setSt('${e(id)}','received')">Recebido</button>
+    <button class="abtn ab-note ${nt?'has':''}" onclick="openNote('${e(id)}','${e(it.produto)}')">📝</button>
+  </div>
+</div>`;
+}
+
+async function cycle(id){
+  const s=window.statuses[id]||'pending';
+  window.statuses[id]=s==='pending'?'bought':s==='bought'?'received':'pending';
+  renderCompras(); await fbSave('statuses',window.statuses);
+}
+async function setSt(id,st){
+  window.statuses[id]=window.statuses[id]===st?'pending':st;
+  renderCompras(); await fbSave('statuses',window.statuses);
+}
+function togCat(cat){
+  collapsed[cat]=!collapsed[cat];
+  localStorage.setItem('col',JSON.stringify(collapsed));
+  renderCompras();
+}
+async function resetAll(){
+  if(!confirm('Limpar todos os status e notas para toda a equipe?')) return;
+  window.statuses={}; window.notes={};
+  renderCompras();
+  await fbSave('statuses',{}); await fbSave('notes',{});
+}
+
+// ═══ NOTAS ═══
+function openNote(id,name){
+  modalId=id;
+  document.getElementById('mTitle').textContent='📝 '+name;
+  document.getElementById('mText').value=window.notes[id]||'';
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal(){ document.getElementById('modal').classList.remove('open'); modalId=null; }
+async function saveNote(){
+  if(!modalId) return;
+  window.notes[modalId]=document.getElementById('mText').value.trim();
+  closeModal(); renderCompras(); await fbSave('notes',window.notes);
+}
+document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
+
+// ═══ COTAÇÕES ═══
+function renderCotacoes(){
+  const allF=[...RAW.fornecedores];
+  window.extraQuotes.forEach(q=>{ if(!allF.includes(q.supplier)) allF.push(q.supplier); });
+
+  const pm={};
+  RAW.cotacoes.forEach(c=>{
+    const k=norm(c.produto);
+    if(!pm[k]) pm[k]={label:c.produto,cat:c.cat,prices:{}};
+    Object.entries(c.precos).forEach(([f,p])=>{ pm[k].prices[f]=p; });
+  });
+  window.extraQuotes.forEach(q=>{
+    q.items.forEach(it=>{
+      let found=Object.keys(pm).find(pk=>sameProduct(pk,it.name));
+      if(!found){ pm[norm(it.name)]={label:it.name,cat:'',prices:{}}; found=norm(it.name); }
+      if(it.price!=null) pm[found].prices[q.supplier]=it.price;
+    });
+  });
+
+  const rows=Object.values(pm).filter(r=>Object.keys(r.prices).length>0);
+  document.getElementById('cotSub').textContent=`${allF.length} fornecedores · ${rows.length} produtos`;
+
+  if(!rows.length){
+    document.querySelector('.ctbl').style.display='none';
+    document.getElementById('cotEmpty').style.display='';
+    return;
+  }
+  document.querySelector('.ctbl').style.display='';
+  document.getElementById('cotEmpty').style.display='none';
+
+  document.getElementById('ctH').innerHTML=`<tr>
+    <th>Categoria</th><th>Produto</th>
+    ${allF.map(f=>`<th class="fh">🏪 ${f}</th>`).join('')}
+    <th>✅ Melhor</th>
+  </tr>`;
+
+  document.getElementById('ctB').innerHTML=rows.map(row=>{
+    const prices=Object.values(row.prices).filter(p=>p!=null&&!isNaN(p));
+    const minP=prices.length?Math.min(...prices):null;
+    const bestF=minP!=null?Object.entries(row.prices).find(([,p])=>p===minP)?.[0]:null;
+    const cells=allF.map(f=>{
+      const p=row.prices[f];
+      if(p==null||isNaN(p)) return`<td class="nopr">—</td>`;
+      return`<td>${p===minP&&prices.length>1?`<span class="best">R$ ${Number(p).toFixed(2)}</span>`:'R$ '+Number(p).toFixed(2)}</td>`;
+    }).join('');
+    return`<tr>
+      <td style="color:var(--muted);font-size:.7rem">${row.cat}</td>
+      <td style="font-weight:500">${row.label}</td>
+      ${cells}
+      <td>${bestF?`<span class="win">${bestF}</span>`:'<span class="nopr">—</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// Upload de cotação
+document.getElementById('uzone').addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.classList.add('drag')});
+document.getElementById('uzone').addEventListener('dragleave',e=>e.currentTarget.classList.remove('drag'));
+document.getElementById('uzone').addEventListener('drop',e=>{
+  e.preventDefault();e.currentTarget.classList.remove('drag');
+  upFiles=[...e.dataTransfer.files]; updateUzone();
+});
+document.getElementById('fileUp').addEventListener('change',function(){
+  upFiles=[...this.files]; updateUzone();
+});
+function updateUzone(){
+  document.getElementById('uzH').textContent=upFiles.map(f=>f.name).join(', ')||'Arraste ou clique para subir';
+  document.getElementById('uzP').textContent=upFiles.length?upFiles.length+' arquivo(s) pronto(s)':'PDF, foto, planilha ou texto · múltiplos arquivos';
+}
+
+async function analisarCotacao(){
+  const sup=(document.getElementById('supName').value.trim())||'Fornecedor';
+  const paste=document.getElementById('pasteT').value.trim();
+  if(!upFiles.length&&!paste){ toast('Adicione arquivo ou texto','err'); return; }
+
+  const key=apiKey||prompt('Chave Anthropic API (sk-ant-...):');
+  if(!key){ toast('Chave necessária','err'); return; }
+  apiKey=key; localStorage.setItem('ak',key);
+
+  document.getElementById('btnIA').disabled=true;
+  showAI('Preparando arquivos...');
+
+  try{
+    const parts=[];
+    for(const file of upFiles){
+      const b64=await f2b64(file);
+      const ext=file.name.split('.').pop().toLowerCase();
+      if(['png','jpg','jpeg','webp'].includes(ext))
+        parts.push({type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}});
+      else if(ext==='pdf')
+        parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+      else
+        parts.push({type:'text',text:`[Arquivo: ${file.name}]\n${await f2txt(file)}`});
+    }
+    if(paste) parts.push({type:'text',text:`[Cotação]\n${paste}`});
+    parts.push({type:'text',text:`Extraia TODOS os produtos com preços desta cotação do fornecedor "${sup}".
+Responda APENAS JSON sem markdown, sem explicações:
+{"supplier":"${sup}","items":[{"name":"nome do produto","qty":"embalagem ou qtd","price":12.50}]}
+Regras: price = número sem R$, null se não encontrar. Inclua todos os itens com preço.`});
+
+    showAI('Analisando com IA...');
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,
+        messages:[{role:'user',content:parts}]})
+    });
+    if(!res.ok){ const er=await res.json(); throw new Error(er.error?.message||'Erro API'); }
+    const d=await res.json();
+    const raw=d.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+    let parsed;
+    try{ parsed=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch{ const m=raw.match(/\{[\s\S]*\}/); if(m) parsed=JSON.parse(m[0]); else throw new Error('JSON inválido'); }
+    hideAI();
+    pendExt={...parsed,supplier:sup};
+    showExt(pendExt);
+  }catch(err){ hideAI(); toast('Erro: '+err.message,'err'); console.error(err); }
+  document.getElementById('btnIA').disabled=false;
+}
+
+function showExt(data){
+  document.getElementById('extSup').textContent=data.supplier;
+  document.getElementById('extBody').innerHTML=(data.items||[]).map((it,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
+    <td contenteditable="true" style="font-weight:500">${it.name}</td>
+    <td contenteditable="true" style="color:var(--muted)">${it.qty||'—'}</td>
+    <td contenteditable="true" style="color:var(--accent)">${it.price!=null?'R$ '+Number(it.price).toFixed(2):'—'}</td>
+    <td><button onclick="this.closest('tr').remove()"
+      style="background:transparent;border:1px solid #f5656540;color:var(--red);
+      border-radius:5px;padding:2px 6px;font-size:.62rem;cursor:pointer">✕</button></td>
+  </tr>`).join('');
+  document.getElementById('extCard').style.display='block';
+}
+
+async function saveCot(){
+  if(!pendExt){ toast('Nada para salvar','err'); return; }
+  const rows=document.querySelectorAll('#extBody tr');
+  const items=[];
+  rows.forEach(tr=>{
+    const cells=tr.querySelectorAll('td');
+    const name=cells[1]?.textContent.trim();
+    const qty=cells[2]?.textContent.trim();
+    const pr=parseFloat((cells[3]?.textContent||'').replace('R$','').replace(',','.'));
+    if(name) items.push({name,qty,price:isNaN(pr)?null:pr});
+  });
+  const idx=window.extraQuotes.findIndex(q=>q.supplier===pendExt.supplier);
+  if(idx>=0) window.extraQuotes[idx]={supplier:pendExt.supplier,items,date:new Date().toISOString()};
+  else       window.extraQuotes.push({supplier:pendExt.supplier,items,date:new Date().toISOString()});
+  await fbSave('quotes',window.extraQuotes);
+  clearUp(); toast('Cotação salva ✓','ok'); renderCotacoes();
+}
+
+function clearUp(){
+  upFiles=[]; document.getElementById('fileUp').value='';
+  document.getElementById('pasteT').value=''; document.getElementById('supName').value='';
+  updateUzone(); document.getElementById('extCard').style.display='none'; pendExt=null;
+}
+function showAI(msg){
+  const b=document.getElementById('aiBox'); b.classList.add('show');
+  document.getElementById('aiMsg').textContent=msg;
+  document.getElementById('extCard').style.display='none';
+}
+function hideAI(){ document.getElementById('aiBox').classList.remove('show'); }
+
+// ═══ VENDAS ═══
+function renderVendas(){
+  const q=norm(document.getElementById('vsrch').value||'');
+  const items=RAW.vendas.filter(v=>!q||norm(v.nome).includes(q));
+  document.getElementById('vSub').textContent=`${items.length} produtos`;
+  const maxQ=Math.max(...items.map(v=>v.qty||0));
+  document.getElementById('vBody').innerHTML=items.map((v,i)=>{
+    const pct=maxQ?Math.round((v.qty||0)/maxQ*100):0;
+    const preco=RAW.precos_bar[v.nome];
+    return`<tr>
+      <td><span class="rank">${i+1}</span></td>
+      <td style="font-weight:500">${v.nome}</td>
+      <td style="color:var(--muted);font-size:.73rem">—</td>
+      <td>${v.qty?.toLocaleString('pt-BR')||'—'}</td>
+      <td style="color:var(--muted)">${v.consumo_medio?.toLocaleString('pt-BR')||'—'}</td>
+      <td style="color:var(--accent)">${preco?'R$ '+preco.toFixed(2):'—'}</td>
+      <td><div class="bar-w"><div class="bar-f" style="width:${pct}%"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══ ESTOQUE ═══
+function setEF(f){
+  eFilter=f;
+  ['all','buy','ok'].forEach(k=>document.getElementById('ef-'+k).classList.toggle('on',k===f));
+  renderEstoque();
+}
+function renderEstoque(){
+  const q=norm(document.getElementById('esrch').value||'');
+  const cat=document.getElementById('ecat').value;
+  const sel=document.getElementById('ecat');
+  if(sel.options.length<=1){
+    [...new Set(RAW.items.map(i=>i.subgrupo).filter(Boolean))].sort().forEach(c=>{
+      const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+    });
+  }
+  const items=RAW.items.filter(it=>{
+    const mq=!q||norm(it.produto).includes(q)||norm(it.subgrupo||'').includes(q);
+    const mc=!cat||it.subgrupo===cat;
+    const mf=eFilter==='all'||(eFilter==='buy'&&it.needs_buy)||(eFilter==='ok'&&!it.needs_buy);
+    return mq&&mc&&mf;
+  });
+  document.getElementById('eSub').textContent=`${items.length} produtos`;
+  document.getElementById('eBody').innerHTML=items.map(it=>{
+    const qtd=it.qtd_comprar;
+    const qd=typeof qtd==='number'?Math.ceil(qtd):(qtd||'Comprar');
+    return`<tr>
+      <td style="font-weight:500">${it.produto}</td>
+      <td style="color:var(--muted);font-size:.72rem">${it.subgrupo||'—'}</td>
+      <td style="color:var(--accent)">${it.saldo!=null?Math.round(it.saldo):'—'}</td>
+      <td style="color:${it.needs_buy?'var(--red)':'var(--green)'};font-weight:600">${it.needs_buy?qd:'✓ OK'}</td>
+      <td style="color:var(--blue);font-size:.79rem">${it.fornec1||it.fornec2||'—'}</td>
+      <td style="color:var(--green)">${it.preco1?'R$ '+it.preco1.toFixed(2):it.preco2?'R$ '+it.preco2.toFixed(2):'—'}</td>
+      <td style="color:var(--muted)">${it.vendas30!=null?it.vendas30:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══ FILE UTILS ═══
+const f2b64=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('falhou'));r.readAsDataURL(f);});
+const f2txt=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('falhou'));r.readAsText(f,'UTF-8');});
+
+// ═══ TOAST ═══
+let tt;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show '+(type||'');
+  clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ═══ INIT ═══
+renderCompras();
+</script>
+</body>
+</html>
