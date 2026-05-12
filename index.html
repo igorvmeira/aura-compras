@@ -842,8 +842,25 @@ function toast(msg,type=''){
   clearTimeout(tt); tt=setTimeout(()=>el.classList.remove('show'),3000);
 }
 
+// ═══ COTAÇÕES PRÉ-CARREGADAS (atualizadas 12/05/2026) ═══
+const SEED_QUOTES = [{"supplier": "Adega de Minas", "date": "2026-05-12T16:32:20", "items": [{"name": "Ciroc Tradicional", "qty": "Und", "price": 169.9}, {"name": "Ciroc Red Berry", "qty": "Und", "price": 189.9}, {"name": "Grey Goose Tradicional", "qty": "Und", "price": 149.9}, {"name": "Absolut 1L", "qty": "Caixa 12un", "price": 79.9}, {"name": "Absolut 1L Und", "qty": "Und", "price": 85.9}, {"name": "Tanqueray", "qty": "Und", "price": 99.9}, {"name": "Old Parr 1L", "qty": "Und", "price": 144.9}, {"name": "Jack Daniels Tradicional 1L", "qty": "Und", "price": 129.9}, {"name": "Jack Daniels Honey/Fire 1L", "qty": "Und", "price": 129.9}, {"name": "Gentleman Jack", "qty": "Und", "price": 249.9}, {"name": "Red Label 1L", "qty": "Und", "price": 85.9}, {"name": "Black Label 1L", "qty": "Und", "price": 169.9}, {"name": "Smirnoff 1L", "qty": "Und", "price": 32.9}]}, {"supplier": "Inova", "date": "2026-05-12T16:32:20", "items": [{"name": "Ciroc Tradicional", "qty": "Und", "price": 169.9}, {"name": "Ciroc Red Berry", "qty": "Und", "price": 185.9}, {"name": "Tanqueray", "qty": "Und", "price": 97.9}, {"name": "Old Parr 1L", "qty": "Und", "price": 144.9}, {"name": "Jack Daniels Tradicional 1L", "qty": "Und", "price": 125.9}, {"name": "Jack Daniels Honey/Fire 1L", "qty": "Und", "price": 125.9}, {"name": "Gentleman Jack", "qty": "Und", "price": 199.9}, {"name": "Red Label 1L", "qty": "Und", "price": 79.9}, {"name": "Black Label 1L", "qty": "Und", "price": 159.9}, {"name": "Smirnoff 1L", "qty": "Und", "price": 31.9}]}];
+
+// Injeta cotações seed no Firebase se ainda não existirem
+window._seedQuotes = async function() {
+  if(window.extraQuotes.length === 0 && window._save) {
+    window.extraQuotes = SEED_QUOTES;
+    await window._save('quotes', window.extraQuotes);
+  } else if(window.extraQuotes.length === 0) {
+    // Fallback sem Firebase
+    window.extraQuotes = SEED_QUOTES;
+  }
+  renderCotacoes();
+};
+
 // ═══ INIT ═══
 renderCompras();
+// Aguarda Firebase conectar antes de seed
+setTimeout(()=>{ if(window._seedQuotes) window._seedQuotes(); }, 1500);
 </script>
 </body>
 </html>
