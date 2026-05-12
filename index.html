@@ -350,6 +350,21 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 
   <div class="stitle">📊 Comparativo de Fornecedores <small id="cotSub"></small></div>
+
+  <!-- CATEGORY FILTER -->
+  <div class="frow" style="margin-bottom:16px" id="catFilterRow">
+    <button class="fb on" id="cf-all"         onclick="setCatF('all')">🍾 Todos</button>
+    <button class="fb"    id="cf-destilados"   onclick="setCatF('destilados')">🥃 Destilados</button>
+    <button class="fb"    id="cf-vinhos"       onclick="setCatF('vinhos')">🍷 Vinhos</button>
+    <button class="fb"    id="cf-energeticos"  onclick="setCatF('energeticos')">⚡ Energéticos</button>
+    <button class="fb"    id="cf-refrigerantes" onclick="setCatF('refrigerantes')">🥤 Refrigerantes</button>
+    <button class="fb"    id="cf-cervejas"     onclick="setCatF('cervejas')">🍺 Cervejas & Água</button>
+  </div>
+  <div id="catFilterInfo" style="display:none;background:var(--s2);border:1px solid var(--border);
+    border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:.75rem;color:var(--muted);
+    display:none;align-items:center;gap:8px">
+    <span id="catFilterLabel"></span>
+  </div>
   <div class="ctbl-wrap">
     <table class="ctbl"><thead id="ctH"></thead><tbody id="ctB"></tbody></table>
   </div>
@@ -610,9 +625,61 @@ async function saveNote(){
 document.getElementById('modal').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeModal(); });
 
 // ═══ COTAÇÕES ═══
+// ═══ CATEGORY FILTER CONFIG ═══
+const CAT_FILTERS = {
+  all:          null,  // null = show all suppliers
+  destilados:   ['Adega de Minas','Inova','Mercado Livre'],
+  vinhos:       ['Vine Wine','Adega de Minas','Mercado Livre'],
+  energeticos:  ['Adega de Minas','Villefort','Mart Minas','Mercado Livre'],
+  refrigerantes:['Adega de Minas','Mart Minas','Villefort','Nova Geração'],
+  cervejas:     ['Nova Cintra'],
+};
+
+const CAT_KEYWORDS = {
+  destilados:   ['vodka','whisky','whiskey','gin','tequila','rum','licor','cachaca','cachaça','ciroc','goose','absolut','tanqueray','jack','label','smirnoff','gentleman','old parr','campari','amareto','aperol'],
+  vinhos:       ['vinho','wine','espumante','prosecco','champagne','rose','rosé','merlot','cabernet','chardonnay'],
+  energeticos:  ['energy','energetico','energético','monster','redbull','red bull','baly','power'],
+  refrigerantes:['refrigerante','coca','pepsi','guarana','guaraná','sprite','fanta','soda','agua tonica','água tônica','tonica'],
+  cervejas:     ['cerveja','beer','lager','pilsen','ipa','heineken','brahma','skol','corona','stella','budweiser','mamba','agua mamba','água mamba'],
+};
+
+let activeCatFilter = 'all';
+
+function setCatF(cat){
+  activeCatFilter = cat;
+  Object.keys(CAT_FILTERS).forEach(k=>{
+    const el = document.getElementById('cf-'+k);
+    if(el) el.classList.toggle('on', k===cat);
+  });
+  // Show info label
+  const info = document.getElementById('catFilterInfo');
+  const label = document.getElementById('catFilterLabel');
+  if(cat === 'all'){
+    info.style.display='none';
+  } else {
+    const suppliers = CAT_FILTERS[cat];
+    const icons = {destilados:'🥃',vinhos:'🍷',energeticos:'⚡',refrigerantes:'🥤',cervejas:'🍺'};
+    info.style.display='flex';
+    label.innerHTML = `${icons[cat]||''} Exibindo apenas: <b style="color:var(--text);margin-left:4px">${suppliers.join(' · ')}</b>`;
+  }
+  renderCotacoes();
+}
+
+function guessCat(productName){
+  const n = norm(productName);
+  for(const [cat, keywords] of Object.entries(CAT_KEYWORDS)){
+    if(keywords.some(k => n.includes(norm(k)))) return cat;
+  }
+  return null;
+}
+
 function renderCotacoes(){
-  const allF=[...RAW.fornecedores];
+  // Apply category supplier filter
+  const supplierFilter = CAT_FILTERS[activeCatFilter] || null;
+
+  let allF = [...RAW.fornecedores];
   window.extraQuotes.forEach(q=>{ if(!allF.includes(q.supplier)) allF.push(q.supplier); });
+  if(supplierFilter) allF = allF.filter(f => supplierFilter.includes(f));
 
   const pm={};
   RAW.cotacoes.forEach(c=>{
@@ -628,7 +695,14 @@ function renderCotacoes(){
     });
   });
 
-  const rows=Object.values(pm).filter(r=>Object.keys(r.prices).length>0);
+  // Filter rows: if category filter active, only show products matching that category
+  let rows = Object.values(pm).filter(r=>Object.keys(r.prices).length>0);
+  if(activeCatFilter !== 'all'){
+    rows = rows.filter(r => {
+      const guessed = guessCat(r.label);
+      return guessed === activeCatFilter || guessed === null;
+    });
+  }
   document.getElementById('cotSub').textContent=`${allF.length} fornecedores · ${rows.length} produtos`;
 
   if(!rows.length){
