@@ -67,9 +67,9 @@ window._save = async (col, data) => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
 :root{
-  --bg:#0d0f14; --s1:#13161f; --s2:#191d28; --s3:#1f2435; --border:#252c3f;
-  --accent:#f5c842; --green:#3ecf8e; --red:#f56565; --blue:#63a8f5;
-  --purple:#a78bfa; --orange:#fb923c; --text:#e8ecf8; --muted:#5a6380; --r:12px;
+  --bg:#f5f0e8; --s1:#fffdf8; --s2:#f0ebe0; --s3:#e8e1d4; --border:#d8cfc0;
+  --accent:#c8860a; --green:#1a8a4a; --red:#c0392b; --blue:#2563a8;
+  --purple:#7c3aed; --orange:#c2550a; --text:#2c2416; --muted:#8a7a65; --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
@@ -455,6 +455,66 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 </div>
 
+<!-- ═══════════ ESTOQUE ═══════════ -->
+<div class="page" id="page-estoque">
+
+  <!-- SUB-TABS -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+    <button class="fb on" id="et-lista"    onclick="setETab('lista')">📋 Lista Completa</button>
+    <button class="fb"    id="et-contagem" onclick="setETab('contagem')">🔢 Contagem / Inventário</button>
+  </div>
+
+  <!-- SUB-PAGE: LISTA -->
+  <div id="esub-lista">
+    <div class="stitle">📦 Estoque Completo <small id="eSub"></small></div>
+    <div class="frow">
+      <input class="fi" type="text" id="esrch" placeholder="🔍 Buscar produto..." oninput="renderEstoque()">
+      <select class="fi" id="ecat" onchange="renderEstoque()" style="flex:none;min-width:auto">
+        <option value="">Todos os grupos</option>
+      </select>
+      <button class="fb on" id="ef-all" onclick="setEF('all')">Todos</button>
+      <button class="fb"    id="ef-buy" onclick="setEF('buy')">A comprar</button>
+      <button class="fb"    id="ef-ok"  onclick="setEF('ok')">OK</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>Produto</th><th>Grupo</th><th>Saldo</th>
+          <th>Necessidade</th><th>Fornecedor</th><th>Preço</th><th>Última Contagem</th>
+        </tr></thead>
+        <tbody id="eBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SUB-PAGE: CONTAGEM -->
+  <div id="esub-contagem" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="stitle" style="margin:0">🔢 Contagem de Inventário <small id="contSub"></small></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:.75rem;color:var(--muted)" id="contDate"></span>
+        <button class="btn-g" onclick="exportContagem()">⬇️ Exportar</button>
+        <button class="btn" onclick="saveContagem()">💾 Salvar Tudo</button>
+      </div>
+    </div>
+    <div class="frow" style="margin-bottom:14px">
+      <input class="fi" type="text" id="contsrch" placeholder="🔍 Buscar produto..." oninput="renderContagem()">
+      <select class="fi" id="contcat" onchange="renderContagem()" style="flex:none;min-width:auto">
+        <option value="">Todos os grupos</option>
+      </select>
+      <button class="fb on" id="cc-all"     onclick="setCC('all')">Todos</button>
+      <button class="fb"    id="cc-pending" onclick="setCC('pending')">Não contados</button>
+      <button class="fb"    id="cc-done"    onclick="setCC('done')">Contados</button>
+    </div>
+    <div class="prog" style="margin-bottom:16px">
+      <div class="prog-track"><div class="prog-fill" id="contProg" style="width:0%"></div></div>
+      <div class="prog-pct" id="contPct">0%</div>
+      <span style="font-size:.73rem;color:var(--muted);margin-left:6px" id="contCount"></span>
+    </div>
+    <div id="contGrid"></div>
+  </div>
+</div>
+
 <!-- ═══════════ ACURÁCIA ═══════════ -->
 <div class="page" id="page-acuracia">
 
@@ -650,7 +710,7 @@ function goPage(id, el){
   el.classList.add('on');
   if(id==='cotacoes') renderCotacoes();
   if(id==='vendas')   renderVendas();
-  if(id==='estoque')  renderEstoque();
+  if(id==='estoque')  { setETab('lista'); renderEstoque(); }
   if(id==='acuracia') renderAcuracia();
 }
 
@@ -1397,6 +1457,7 @@ function renderEstoque(){
   document.getElementById('eBody').innerHTML=items.map(it=>{
     const qtd=it.qtd_comprar;
     const qd=typeof qtd==='number'?Math.ceil(qtd):(qtd||'Comprar');
+    const cont = contagens[it.produto];
     return`<tr>
       <td style="font-weight:500">${it.produto}</td>
       <td style="color:var(--muted);font-size:.72rem">${it.subgrupo||'—'}</td>
@@ -1404,7 +1465,7 @@ function renderEstoque(){
       <td style="color:${it.needs_buy?'var(--red)':'var(--green)'};font-weight:600">${it.needs_buy?qd:'✓ OK'}</td>
       <td style="color:var(--blue);font-size:.79rem">${it.fornec1||it.fornec2||'—'}</td>
       <td style="color:var(--green)">${it.preco1?'R$ '+it.preco1.toFixed(2):it.preco2?'R$ '+it.preco2.toFixed(2):'—'}</td>
-      <td style="color:var(--muted)">${it.vendas30!=null?it.vendas30:'—'}</td>
+      <td style="color:var(--muted);font-size:.72rem">${cont?`<span style="color:var(--green)">✓ ${cont.qty} un</span><br>${cont.date}`:'—'}</td>
     </tr>`;
   }).join('');
 }
