@@ -290,6 +290,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <button class="tab" onclick="goPage('cotacoes',this)">📊 Cotações</button>
     <button class="tab" onclick="goPage('vendas',this)">📈 Vendas</button>
     <button class="tab" onclick="goPage('estoque',this)">📦 Estoque</button>
+    <button class="tab" onclick="goPage('acuracia',this)">🎯 Acurácia</button>
   </div>
 </nav>
 
@@ -454,6 +455,98 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 </div>
 
+<!-- ═══════════ ACURÁCIA ═══════════ -->
+<div class="page" id="page-acuracia">
+
+  <!-- HEADER CARDS -->
+  <div class="stats" style="margin-bottom:16px">
+    <div class="stat" style="border-color:#a78bfa55;color:var(--purple)">🎯 Acurácia Geral: <b id="acGeral">—</b></div>
+    <div class="stat sg">✅ Batendo: <b id="acOk">0</b></div>
+    <div class="stat sr">⚠️ Divergência: <b id="acDiv">0</b></div>
+    <div class="stat" style="border-color:#fb923c55;color:var(--orange)">📦 Sem contagem: <b id="acSem">0</b></div>
+  </div>
+
+  <!-- PROGRESS GERAL -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);
+    padding:16px 18px;margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700">
+        📊 Acurácia do Inventário
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:.72rem;color:var(--muted)" id="acDate"></span>
+        <button class="btn-g" onclick="exportAcuracia()">⬇️ Exportar relatório</button>
+      </div>
+    </div>
+
+    <!-- acurácia gauge -->
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="position:relative;width:100px;height:100px;flex-shrink:0">
+        <svg viewBox="0 0 36 36" style="transform:rotate(-90deg);width:100px;height:100px">
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--border)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--green)" stroke-width="3"
+            stroke-dasharray="100 100" stroke-dashoffset="100"
+            id="acCircle" style="transition:stroke-dashoffset 1s ease;stroke-linecap:round"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;
+          align-items:center;justify-content:center">
+          <span style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800" id="acPctBig">—</span>
+          <span style="font-size:.6rem;color:var(--muted)">acurácia</span>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:.78rem;color:var(--muted);margin-bottom:8px">
+          Acurácia = itens contados que batem com o estoque teórico ÷ total contado
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px" id="acBreakdown"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="frow" style="margin-bottom:14px">
+    <input class="fi" type="text" id="acsrch" placeholder="🔍 Buscar produto..." oninput="renderAcuracia()">
+    <select class="fi" id="accat" onchange="renderAcuracia()" style="flex:none">
+      <option value="">Todos os grupos</option>
+    </select>
+    <button class="fb on" id="acf-all"   onclick="setAcF('all')">Todos</button>
+    <button class="fb"    id="acf-ok"    onclick="setAcF('ok')">✅ Batendo</button>
+    <button class="fb"    id="acf-div"   onclick="setAcF('div')">⚠️ Divergência</button>
+    <button class="fb"    id="acf-sem"   onclick="setAcF('sem')">❓ Sem contagem</button>
+  </div>
+
+  <!-- TABLE -->
+  <div style="overflow-x:auto">
+    <table class="tbl" id="acTable">
+      <thead><tr>
+        <th>Produto</th>
+        <th>Grupo</th>
+        <th>📋 Estoque<br><small style="font-weight:400">Registrado</small></th>
+        <th>🔢 Contagem<br><small style="font-weight:400">Real</small></th>
+        <th>📈 Vendido<br><small style="font-weight:400">No período</small></th>
+        <th>🧮 Teórico<br><small style="font-weight:400">Registrado - Vendido</small></th>
+        <th>📉 Diferença<br><small style="font-weight:400">Contagem - Teórico</small></th>
+        <th>🎯 Status</th>
+      </tr></thead>
+      <tbody id="acBody"></tbody>
+    </table>
+  </div>
+
+  <!-- LEGEND -->
+  <div style="margin-top:20px;background:var(--s2);border:1px solid var(--border);
+    border-radius:var(--r);padding:14px 18px">
+    <div style="font-family:'Syne',sans-serif;font-size:.8rem;font-weight:700;margin-bottom:10px">
+      📖 Como interpretar
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;font-size:.75rem;color:var(--muted);line-height:1.6">
+      <div><b style="color:var(--green)">✅ Batendo (±5%)</b><br>Contagem real bate com o estoque teórico. Sem perdas identificadas.</div>
+      <div><b style="color:var(--red)">📉 Quebra</b><br>Menos na contagem do que o esperado. Possível perda, furto ou erro de registro.</div>
+      <div><b style="color:var(--blue)">📈 Sobra</b><br>Mais na contagem do que o esperado. Possível compra não registrada ou erro.</div>
+      <div><b style="color:var(--muted)">❓ Sem contagem</b><br>Item não foi contado no inventário ainda.</div>
+    </div>
+  </div>
+</div>
+
 <!-- CONTAGEM MODAL -->
 <div class="modal-bg" id="contModal">
   <div class="modal" style="max-width:420px">
@@ -527,7 +620,7 @@ let pendExt = null;
 // Expõe callbacks pro Firebase module
 window._rc = ()=>renderCompras();
 window._rq = ()=>renderCotacoes();
-window._rv = ()=>renderVendas();
+window._rv = ()=>{ renderVendas(); if(document.getElementById('page-acuracia')?.classList.contains('on')) renderAcuracia(); };
 
 // ═══ UTILITÁRIOS ═══
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -558,6 +651,7 @@ function goPage(id, el){
   if(id==='cotacoes') renderCotacoes();
   if(id==='vendas')   renderVendas();
   if(id==='estoque')  renderEstoque();
+  if(id==='acuracia') renderAcuracia();
 }
 
 // ═══ COMPRAS ═══
@@ -1018,7 +1112,7 @@ let contagens    = {};   // produto -> {qty, date, user}
 let contFilter   = 'all';
 
 // Load from Firebase
-window._rcont = () => renderContagem();
+window._rcont = () => { renderContagem(); if(document.getElementById('page-acuracia').classList.contains('on')) renderAcuracia(); };
 
 onSnapshot && false; // placeholder — Firebase listens set below in module
 
@@ -1341,6 +1435,176 @@ window._seedQuotes = async function() {
   }
   renderCotacoes();
 };
+
+// ═══════════════════════════════════════════════
+//  ACURÁCIA
+// ═══════════════════════════════════════════════
+let acFilter = 'all';
+
+function setAcF(f){
+  acFilter=f;
+  ['all','ok','div','sem'].forEach(k=>document.getElementById('acf-'+k)?.classList.toggle('on',k===f));
+  renderAcuracia();
+}
+
+function calcAcuracia(){
+  // For each item, build: { produto, subgrupo, registrado, contado, vendido, teorico, diff, pct, status }
+  return RAW.items.map(it=>{
+    const registrado  = it.saldo ?? null;
+    const cont        = contagens[it.produto];
+    const contado     = cont ? cont.qty : null;
+    const vendaItem   = vendasImportadas.find(v=>sameProduct(v.nome, it.produto));
+    const vendido     = vendaItem ? vendaItem.qtd : null;
+
+    // Teórico = registrado - vendido (o que DEVERIA ter depois das vendas)
+    const teorico = (registrado !== null && vendido !== null)
+      ? Math.max(0, registrado - vendido)
+      : registrado;
+
+    // Diferença = contado - teórico
+    const diff = (contado !== null && teorico !== null) ? contado - teorico : null;
+
+    // Acurácia individual: dentro de ±5% ou ±0.5 unidade = OK
+    let status = 'sem';
+    if(contado !== null && teorico !== null){
+      const absDiff = Math.abs(diff);
+      const pctDiff = teorico > 0 ? (absDiff / teorico) * 100 : absDiff * 100;
+      if(pctDiff <= 5 || absDiff <= 0.5)  status = 'ok';
+      else if(diff < 0)                    status = 'quebra';
+      else                                 status = 'sobra';
+    } else if(contado === null){
+      status = 'sem';
+    }
+
+    return { ...it, registrado, contado, vendido, teorico, diff, status };
+  });
+}
+
+function renderAcuracia(){
+  const q   = norm(document.getElementById('acsrch')?.value||'');
+  const cat = document.getElementById('accat')?.value||'';
+
+  // Populate dropdown once
+  const sel = document.getElementById('accat');
+  if(sel && sel.options.length<=1){
+    [...new Set(RAW.items.map(i=>i.subgrupo).filter(Boolean))].sort().forEach(c=>{
+      const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+    });
+  }
+
+  const all = calcAcuracia();
+
+  // Global stats
+  const contados  = all.filter(i=>i.contado!==null);
+  const ok        = all.filter(i=>i.status==='ok').length;
+  const div_items = all.filter(i=>i.status==='quebra'||i.status==='sobra').length;
+  const sem       = all.filter(i=>i.status==='sem').length;
+  const acPct     = contados.length ? Math.round(ok/contados.length*100) : null;
+
+  document.getElementById('acOk').textContent  = ok;
+  document.getElementById('acDiv').textContent  = div_items;
+  document.getElementById('acSem').textContent  = sem;
+  document.getElementById('acGeral').textContent = acPct !== null ? acPct+'%' : '—';
+  document.getElementById('acPctBig').textContent = acPct !== null ? acPct+'%' : '—';
+  document.getElementById('acDate').textContent  = contados.length
+    ? `${contados.length} itens contados de ${all.length}`:'Nenhuma contagem ainda';
+
+  // SVG circle: dashoffset = 100 - pct
+  const circle = document.getElementById('acCircle');
+  if(circle && acPct !== null){
+    circle.style.stroke = acPct>=90?'var(--green)':acPct>=70?'var(--accent)':'var(--red)';
+    circle.setAttribute('stroke-dasharray', `${acPct} ${100-acPct}`);
+    circle.setAttribute('stroke-dashoffset', '0');
+  }
+
+  // Breakdown by category
+  const bycat = {};
+  all.filter(i=>i.contado!==null).forEach(i=>{
+    const c = i.subgrupo||'GERAL';
+    if(!bycat[c]) bycat[c]={ok:0,total:0};
+    bycat[c].total++;
+    if(i.status==='ok') bycat[c].ok++;
+  });
+  document.getElementById('acBreakdown').innerHTML = Object.entries(bycat)
+    .sort((a,b)=>a[1].ok/a[1].total - b[1].ok/b[1].total)
+    .slice(0,5)
+    .map(([cat,v])=>{
+      const p=Math.round(v.ok/v.total*100);
+      return`<div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:.7rem;color:var(--muted);min-width:90px">${cat}</span>
+        <div style="flex:1;height:4px;background:var(--border);border-radius:99px;overflow:hidden">
+          <div style="width:${p}%;height:100%;background:${p>=90?'var(--green)':p>=70?'var(--accent)':'var(--red)'};border-radius:99px"></div>
+        </div>
+        <span style="font-size:.7rem;color:var(--muted);min-width:30px;text-align:right">${p}%</span>
+      </div>`;
+    }).join('');
+
+  // Filter
+  let items = all.filter(it=>{
+    const mq = !q || norm(it.produto).includes(q) || norm(it.subgrupo||'').includes(q);
+    const mc = !cat || it.subgrupo===cat;
+    let   mf = acFilter==='all';
+    if(acFilter==='ok')  mf = it.status==='ok';
+    if(acFilter==='div') mf = it.status==='quebra'||it.status==='sobra';
+    if(acFilter==='sem') mf = it.status==='sem';
+    return mq && mc && mf;
+  });
+
+  // Sort: divergências primeiro
+  items.sort((a,b)=>{
+    const order = {quebra:0, sobra:1, sem:2, ok:3};
+    return (order[a.status]??9)-(order[b.status]??9);
+  });
+
+  document.getElementById('acBody').innerHTML = items.map(it=>{
+    const diffAbs = it.diff !== null ? Math.abs(it.diff) : null;
+    const diffPct = it.teorico && it.diff !== null
+      ? Math.round(Math.abs(it.diff)/it.teorico*100) : null;
+
+    const statusHTML = {
+      ok:     `<span style="background:rgba(62,207,142,.12);color:var(--green);border:1px solid rgba(62,207,142,.3);padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700">✅ Batendo</span>`,
+      quebra: `<span style="background:rgba(245,101,101,.12);color:var(--red);border:1px solid rgba(245,101,101,.3);padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700">📉 Quebra</span>`,
+      sobra:  `<span style="background:rgba(99,168,245,.12);color:var(--blue);border:1px solid rgba(99,168,245,.3);padding:2px 10px;border-radius:50px;font-size:.7rem;font-weight:700">📈 Sobra</span>`,
+      sem:    `<span style="color:var(--muted);font-size:.7rem">❓ Sem contagem</span>`,
+    }[it.status]||'';
+
+    const diffColor = it.diff===null?'var(--muted)':it.diff<-0.5?'var(--red)':it.diff>0.5?'var(--blue)':'var(--green)';
+    const diffText  = it.diff===null ? '—'
+      : (it.diff>0?'+':'')+it.diff.toFixed(1)+(diffPct?` (${diffPct}%)`:'');
+
+    return`<tr style="${it.status==='quebra'?'background:rgba(245,101,101,.04)':it.status==='sobra'?'background:rgba(99,168,245,.04)':''}">
+      <td style="font-weight:500">${it.produto}</td>
+      <td style="color:var(--muted);font-size:.72rem">${it.subgrupo||'—'}</td>
+      <td style="color:var(--accent)">${it.registrado!=null?Math.round(it.registrado):'—'}</td>
+      <td style="color:${it.contado!=null?'var(--text)':'var(--muted)'};font-weight:${it.contado!=null?'600':'400'}">
+        ${it.contado!=null?it.contado:'—'}
+        ${it.contado!=null&&contagens[it.produto]?`<br><small style="color:var(--muted);font-weight:400">${contagens[it.produto].date}</small>`:''}
+      </td>
+      <td style="color:var(--orange)">${it.vendido!=null?it.vendido:'—'}</td>
+      <td style="color:var(--text)">${it.teorico!=null?it.teorico.toFixed(1):'—'}</td>
+      <td style="color:${diffColor};font-weight:${it.diff!==null&&Math.abs(it.diff)>0.5?'700':'400'}">${diffText}</td>
+      <td>${statusHTML}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportAcuracia(){
+  const all = calcAcuracia();
+  const now = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  let csv = 'Produto;Grupo;Estoque Registrado;Contagem Real;Vendido;Teórico;Diferença;Status\n';
+  all.forEach(it=>{
+    csv += [
+      it.produto, it.subgrupo||'',
+      it.registrado??'', it.contado??'', it.vendido??'',
+      it.teorico!=null?it.teorico.toFixed(1):'', it.diff!=null?it.diff.toFixed(1):'',
+      {ok:'Batendo',quebra:'Quebra',sobra:'Sobra',sem:'Sem contagem'}[it.status]||''
+    ].join(';')+'\n';
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`acuracia_${now}.csv`; a.click();
+  toast('Relatório exportado ✓','ok');
+}
 
 // ═══ INIT ═══
 // Vendas upload zone drag/drop
