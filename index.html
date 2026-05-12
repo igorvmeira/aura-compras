@@ -489,7 +489,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 
   <!-- SUB-PAGE: CONTAGEM -->
-  <div id="esub-contagem" style="display:none">
+  <div id="esub-contagem" style="display:none;width:100%">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
       <div class="stitle" style="margin:0">🔢 Contagem de Inventário <small id="contSub"></small></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -711,7 +711,11 @@ function goPage(id, el){
   el.classList.add('on');
   if(id==='cotacoes') renderCotacoes();
   if(id==='vendas')   renderVendas();
-  if(id==='estoque')  { setETab('lista'); renderEstoque(); }
+  if(id==='estoque'){
+    setETab('lista');
+    renderEstoque();
+    renderContagem(); // pre-render so contGrid is ready
+  }
   if(id==='acuracia') renderAcuracia();
 }
 
@@ -1180,15 +1184,12 @@ onSnapshot && false; // placeholder — Firebase listens set below in module
 function setETab(tab){
   ['lista','contagem'].forEach(t=>{
     const el = document.getElementById('esub-'+t);
-    if(el) el.style.display = t===tab ? '' : 'none';
+    if(el) el.style.display = t===tab ? 'block' : 'none';
     const btn = document.getElementById('et-'+t);
     if(btn) btn.classList.toggle('on', t===tab);
   });
-  // Small delay to ensure display:'' is applied before render reads DOM
-  setTimeout(()=>{
-    if(tab==='contagem') renderContagem();
-    else renderEstoque();
-  }, 10);
+  if(tab==='contagem') renderContagem();
+  else renderEstoque();
 }
 
 function setCC(f){
