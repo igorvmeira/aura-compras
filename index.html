@@ -636,11 +636,33 @@ const CAT_FILTERS = {
 };
 
 const CAT_KEYWORDS = {
-  destilados:   ['vodka','whisky','whiskey','gin','tequila','rum','licor','cachaca','cachaça','ciroc','goose','absolut','tanqueray','jack','label','smirnoff','gentleman','old parr','campari','amareto','aperol'],
-  vinhos:       ['vinho','wine','espumante','prosecco','champagne','rose','rosé','merlot','cabernet','chardonnay'],
-  energeticos:  ['energy','energetico','energético','monster','redbull','red bull','baly','power'],
-  refrigerantes:['refrigerante','coca','pepsi','guarana','guaraná','sprite','fanta','soda','agua tonica','água tônica','tonica'],
-  cervejas:     ['cerveja','beer','lager','pilsen','ipa','heineken','brahma','skol','corona','stella','budweiser','mamba','agua mamba','água mamba'],
+  destilados:   [
+    'vodka','whisky','whiskey','gin','tequila','rum','licor','cachaca','cachaça',
+    'ciroc','goose','absolut','tanqueray','jack daniel','label','smirnoff',
+    'gentleman','old parr','old par','campari','amareto','aperol','bourbon',
+    'conhaque','cognac','baileys','martini','cointreau','triple sec',
+    'jimbeam','jim beam','johnnie','johnny','chivas','glenfiddich','macallan',
+  ],
+  vinhos:       [
+    'vinho','wine','espumante','prosecco','champagne','rose','rosé',
+    'merlot','cabernet','chardonnay','sauvignon','pinot','malbec','syrah',
+    'lambrusco','cava','moscatel','porto','madeira',
+  ],
+  energeticos:  [
+    'energy','energetico','energético','monster','redbull','red bull',
+    'baly','power','burn','volcano','thunder','hell','vibe',
+  ],
+  refrigerantes:[
+    'refrigerante','coca','pepsi','guarana','guaraná','sprite','fanta',
+    'soda','tonica','tônica','schweppes','limonada','suco','del valle',
+    'h2o','ice tea','mate','kuat',
+  ],
+  cervejas:     [
+    'cerveja','beer','lager','pilsen','ipa','heineken','brahma','skol',
+    'corona','stella','budweiser','mamba','agua mamba','água mamba',
+    'long neck','600ml','350ml','draft','ale','stout','weiss','witbier',
+    'spaten','beck','eisenbahn','patagonia','colorado','serramalte',
+  ],
 };
 
 let activeCatFilter = 'all';
@@ -695,13 +717,10 @@ function renderCotacoes(){
     });
   });
 
-  // Filter rows: if category filter active, only show products matching that category
+  // Filter rows: only show products that positively match the selected category
   let rows = Object.values(pm).filter(r=>Object.keys(r.prices).length>0);
   if(activeCatFilter !== 'all'){
-    rows = rows.filter(r => {
-      const guessed = guessCat(r.label);
-      return guessed === activeCatFilter || guessed === null;
-    });
+    rows = rows.filter(r => guessCat(r.label) === activeCatFilter);
   }
   document.getElementById('cotSub').textContent=`${allF.length} fornecedores · ${rows.length} produtos`;
 
