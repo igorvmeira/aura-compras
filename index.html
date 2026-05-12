@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bar & Drink — Gestão</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
 <!-- ═══════════════════════════════════════════════════
      🔥 FIREBASE — cole sua config aqui
@@ -1201,6 +1204,8 @@ function setCC(f){
 function contRowHTML(it){
   const c    = contagens[it.produto];
   const done = !!c;
+  // inline escape to avoid dependency order issues
+  const _e = s => String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
   return `<div class="irow ${done?'bought':''}" style="grid-template-columns:28px 1fr auto auto">
   <div class="chk ${done?'ck-buy':''}" style="cursor:default">${done?'✓':''}</div>
   <div class="iinfo">
@@ -1218,7 +1223,7 @@ function contRowHTML(it){
   </div>
   <div class="iacts">
     <button class="abtn ab-buy ${done?'on':''}"
-      onclick="openContModal('${esc(it.produto)}','${esc(it.subgrupo||'')}',${it.saldo||0})">
+      onclick="openContModal('${_e(it.produto)}','${_e(it.subgrupo||'')}',${it.saldo||0})">
       ${done?'✏️ Editar':'+ Contar'}
     </button>
   </div>
