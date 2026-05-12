@@ -67,9 +67,10 @@ window._save = async (col, data) => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
 :root{
-  --bg:#f5f0e8; --s1:#fffdf8; --s2:#f0ebe0; --s3:#e8e1d4; --border:#d8cfc0;
-  --accent:#c8860a; --green:#1a8a4a; --red:#c0392b; --blue:#2563a8;
-  --purple:#7c3aed; --orange:#c2550a; --text:#2c2416; --muted:#8a7a65; --r:12px;
+  --bg:#f2ece0; --s1:#faf6ef; --s2:#ede6d8; --s3:#e4dccb; --border:#cfc5b0;
+  --hover:#ddd3c0;
+  --accent:#b87515; --green:#1e7a42; --red:#b83232; --blue:#2358a0;
+  --purple:#6d35c9; --orange:#b84f0a; --text:#231e14; --muted:#7a6e5a; --r:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
@@ -128,7 +129,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
 .cat-head{display:flex;align-items:center;justify-content:space-between;
   padding:8px 14px;background:var(--s2);border:1px solid var(--border);
   border-radius:10px 10px 0 0;cursor:pointer;user-select:none}
-.cat-head:hover{background:var(--s3)}
+.cat-head:hover{background:var(--hover)}
 .ch-l{display:flex;align-items:center;gap:8px}
 .cat-icon{font-size:1rem}
 .cat-name{font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700}
@@ -145,7 +146,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   align-items:center;gap:10px;padding:10px 14px;
   background:var(--s1);border-bottom:1px solid var(--border);transition:background .12s}
 .irow:last-child{border-bottom:none}
-.irow:hover{background:#161b28}
+.irow:hover{background:var(--hover)}
 .irow.bought{opacity:.5}
 .irow.received{opacity:.35}
 
@@ -187,7 +188,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   border-bottom:1px solid var(--border);color:var(--muted);font-weight:500}
 .tbl td{padding:9px 12px;border-bottom:1px solid #1a1f30;vertical-align:middle}
 .tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:#161b28}
+.tbl tr:hover td{background:var(--hover)}
 .rank{font-family:'Syne',sans-serif;font-weight:800;color:var(--accent)}
 .bar-w{background:var(--border);border-radius:99px;height:5px;min-width:60px}
 .bar-f{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--green))}
@@ -199,7 +200,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   border-bottom:1px solid var(--border);font-weight:500;white-space:nowrap}
 .ctbl th.fh{color:var(--blue)}
 .ctbl td{padding:8px 11px;border-bottom:1px solid #1a1f30;vertical-align:middle}
-.ctbl tr:hover td{background:#161b28}
+.ctbl tr:hover td{background:var(--hover)}
 .best{background:rgba(62,207,142,.12);color:var(--green);font-weight:700;
   border-radius:5px;padding:2px 7px;display:inline-block}
 .nopr{color:#2a3050}
@@ -1633,7 +1634,7 @@ function renderAcuracia(){
     const diffText  = it.diff===null ? '—'
       : (it.diff>0?'+':'')+it.diff.toFixed(1)+(diffPct?` (${diffPct}%)`:'');
 
-    return`<tr style="${it.status==='quebra'?'background:rgba(245,101,101,.04)':it.status==='sobra'?'background:rgba(99,168,245,.04)':''}">
+    return`<tr style="${it.status==='quebra'?'background:rgba(184,50,50,.07)':it.status==='sobra'?'background:rgba(35,88,160,.07)':''}">
       <td style="font-weight:500">${it.produto}</td>
       <td style="color:var(--muted);font-size:.72rem">${it.subgrupo||'—'}</td>
       <td style="color:var(--accent)">${it.registrado!=null?Math.round(it.registrado):'—'}</td>
