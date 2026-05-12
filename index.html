@@ -46,6 +46,12 @@ signInAnonymously(auth).then(() => {
   onSnapshot(doc(db,'gestao','contagens'), s => {
     if(s.exists()){ contagens = s.data(); window._rcont && window._rcont(); }
   });
+  onSnapshot(doc(db,'gestao','historico_contagens'), s => {
+    if(s.exists() && s.data().entries){
+      historicoContagens = s.data().entries;
+      if(document.getElementById('esub-historico')?.style.display==='block') renderHistorico();
+    }
+  });
   onSnapshot(doc(db,'gestao','vendas_import'), s => {
     if(s.exists() && s.data().items){
       vendasImportadas = s.data().items;
@@ -466,6 +472,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
     <button class="fb on" id="et-lista"    onclick="setETab('lista')">📋 Lista Completa</button>
     <button class="fb"    id="et-contagem" onclick="setETab('contagem')">🔢 Contagem / Inventário</button>
+    <button class="fb"    id="et-historico" onclick="setETab('historico')">🕒 Histórico</button>
   </div>
 
   <!-- SUB-PAGE: LISTA -->
@@ -516,6 +523,28 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
       <span style="font-size:.73rem;color:var(--muted);margin-left:6px" id="contCount"></span>
     </div>
     <div id="contGrid"></div>
+  </div>
+
+  <!-- SUB-PAGE: HISTÓRICO -->
+  <div id="esub-historico" style="display:none;width:100%">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+      <div class="stitle" style="margin:0">🕒 Histórico de Contagens <small id="histSub"></small></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-g" onclick="exportHistorico()">⬇️ Exportar histórico</button>
+        <button class="btn-g" style="border-color:#b8323240;color:var(--red)" onclick="clearHistorico()">🗑 Limpar histórico</button>
+      </div>
+    </div>
+
+    <!-- filters -->
+    <div class="frow" style="margin-bottom:14px">
+      <input class="fi" type="text" id="histsrch" placeholder="🔍 Buscar produto..." oninput="renderHistorico()">
+      <select class="fi" id="histcat" onchange="renderHistorico()" style="flex:none">
+        <option value="">Todos os grupos</option>
+      </select>
+    </div>
+
+    <!-- timeline -->
+    <div id="histContainer"></div>
   </div>
 </div>
 
@@ -717,7 +746,7 @@ function goPage(id, el){
   if(id==='estoque'){
     setETab('lista');
     renderEstoque();
-    renderContagem(); // pre-render so contGrid is ready
+    renderContagem();
   }
   if(id==='acuracia') renderAcuracia();
 }
@@ -1176,7 +1205,8 @@ function renderVendas(){
 // ═══════════════════════════════════════════════
 //  CONTAGEM / INVENTÁRIO
 // ═══════════════════════════════════════════════
-let contagens    = {};   // produto -> {qty, date, user}
+let contagens          = {};   // produto -> {qty, date, user}
+let historicoContagens = [];   // [{produto, qty, date, anterior, obs, ts}]
 let contFilter   = 'all';
 
 // Load from Firebase
@@ -1185,13 +1215,14 @@ window._rcont = () => { renderContagem(); if(document.getElementById('page-acura
 onSnapshot && false; // placeholder — Firebase listens set below in module
 
 function setETab(tab){
-  ['lista','contagem'].forEach(t=>{
+  ['lista','contagem','historico'].forEach(t=>{
     const el = document.getElementById('esub-'+t);
     if(el) el.style.display = t===tab ? 'block' : 'none';
     const btn = document.getElementById('et-'+t);
     if(btn) btn.classList.toggle('on', t===tab);
   });
   if(tab==='contagem') renderContagem();
+  else if(tab==='historico') renderHistorico();
   else renderEstoque();
 }
 
@@ -1323,7 +1354,28 @@ async function saveContItem(){
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})
                 + ' ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Save to current contagens
+  const anterior = contagens[contModalId]?.qty ?? null;
   contagens[contModalId] = { qty, obs, date: dateStr };
+
+  // Append to histórico
+  const entry = {
+    produto:   contModalId,
+    subgrupo:  RAW.items.find(i=>i.produto===contModalId)?.subgrupo || '',
+    qty,
+    anterior,
+    obs,
+    date:      dateStr,
+    ts:        now.getTime()
+  };
+  historicoContagens.unshift(entry); // newest first
+  // Keep max 500 entries
+  if(historicoContagens.length > 500) historicoContagens = historicoContagens.slice(0, 500);
+
+  await fbSave('contagens', contagens);
+  await fbSave('historico_contagens', { entries: historicoContagens });
+
   closeContModal();
   renderContagem();
   toast('Contagem salva ✓','ok');
@@ -1688,6 +1740,121 @@ function exportAcuracia(){
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download=`acuracia_${now}.csv`; a.click();
   toast('Relatório exportado ✓','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  HISTÓRICO DE CONTAGENS
+// ═══════════════════════════════════════════════
+function renderHistorico(){
+  const q   = norm(document.getElementById('histsrch')?.value||'');
+  const cat = document.getElementById('histcat')?.value||'';
+
+  // Populate group dropdown once
+  const sel = document.getElementById('histcat');
+  if(sel && sel.options.length<=1){
+    [...new Set(RAW.items.map(i=>i.subgrupo).filter(Boolean))].sort().forEach(c=>{
+      const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+    });
+  }
+
+  const container = document.getElementById('histContainer');
+  if(!container) return;
+
+  document.getElementById('histSub').textContent = `${historicoContagens.length} registros`;
+
+  // Filter
+  const entries = historicoContagens.filter(e=>{
+    const mq = !q || norm(e.produto).includes(q) || norm(e.obs||'').includes(q);
+    const mc = !cat || e.subgrupo===cat;
+    return mq && mc;
+  });
+
+  if(!entries.length){
+    container.innerHTML=`<div class="empty"><div class="ei">🕒</div>
+      <h3>Nenhum histórico ainda</h3>
+      <p>As contagens feitas aparecem aqui automaticamente.</p></div>`;
+    return;
+  }
+
+  // Group by date (dd/mm/yyyy)
+  const byDate = {};
+  entries.forEach(e=>{
+    const day = e.date.split(' ')[0]; // "12/05/2026"
+    if(!byDate[day]) byDate[day]=[];
+    byDate[day].push(e);
+  });
+
+  container.innerHTML = Object.keys(byDate).map(day=>{
+    const dayEntries = byDate[day];
+    const total = dayEntries.length;
+    return `
+<div class="cat-block" style="margin-bottom:20px">
+  <div class="cat-head" style="cursor:default">
+    <div class="ch-l">
+      <span class="cat-icon">📅</span>
+      <span class="cat-name">${day}</span>
+    </div>
+    <div class="ch-r">
+      <span>${total} contagem${total>1?'s':''}</span>
+    </div>
+  </div>
+  <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden">
+    ${dayEntries.map(e=>{
+      const diff = e.anterior !== null ? e.qty - e.anterior : null;
+      const diffColor = diff===null?'var(--muted)':diff>0.5?'var(--blue)':diff<-0.5?'var(--red)':'var(--green)';
+      const diffText  = diff===null ? '' : (diff>0?'+':'')+diff.toFixed(1);
+      const icon = ICONS[e.subgrupo]||'📦';
+      return `<div class="irow" style="grid-template-columns:auto 1fr auto auto">
+        <div style="font-size:1rem;padding:0 4px">${icon}</div>
+        <div class="iinfo">
+          <div class="iname">${e.produto}</div>
+          <div class="itags">
+            <span class="tag" style="color:var(--muted)">${e.subgrupo||'—'}</span>
+            <span class="tag t-obs">🕐 ${e.date.split(' ')[1]||''}</span>
+            ${e.obs?`<span class="tag t-obs">💬 ${e.obs}</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;min-width:80px">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;color:var(--text)">${e.qty} un</div>
+          ${e.anterior!==null
+            ? `<div style="font-size:.7rem;color:${diffColor};font-weight:600">${diffText} (ant: ${e.anterior})</div>`
+            : `<div style="font-size:.7rem;color:var(--muted)">1ª contagem</div>`}
+        </div>
+        <div style="min-width:80px;text-align:right">
+          ${diff===null?'':diff>0.5
+            ? `<span style="background:rgba(35,88,160,.1);color:var(--blue);border:1px solid rgba(35,88,160,.3);padding:2px 8px;border-radius:50px;font-size:.68rem;font-weight:700">📈 Subiu</span>`
+            : diff<-0.5
+            ? `<span style="background:rgba(184,50,50,.1);color:var(--red);border:1px solid rgba(184,50,50,.3);padding:2px 8px;border-radius:50px;font-size:.68rem;font-weight:700">📉 Caiu</span>`
+            : `<span style="background:rgba(30,122,66,.1);color:var(--green);border:1px solid rgba(30,122,66,.3);padding:2px 8px;border-radius:50px;font-size:.68rem;font-weight:700">✅ Igual</span>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>`;
+  }).join('');
+}
+
+function exportHistorico(){
+  if(!historicoContagens.length){ toast('Nenhum histórico para exportar','err'); return; }
+  const now = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  let csv = 'Data;Hora;Produto;Grupo;Qtd Contada;Qtd Anterior;Variação;Observação\n';
+  historicoContagens.forEach(e=>{
+    const [day, time] = e.date.split(' ');
+    const diff = e.anterior!==null ? (e.qty-e.anterior).toFixed(1) : '';
+    csv += [day||'', time||'', e.produto, e.subgrupo||'', e.qty, e.anterior??'', diff, e.obs||''].join(';')+'\n';
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`historico_contagens_${now}.csv`; a.click();
+  toast('Histórico exportado ✓','ok');
+}
+
+async function clearHistorico(){
+  if(!confirm('Apagar TODO o histórico de contagens? Esta ação não pode ser desfeita.')) return;
+  historicoContagens = [];
+  await fbSave('historico_contagens', { entries: [] });
+  renderHistorico();
+  toast('Histórico apagado','ok');
 }
 
 // ═══ INIT ═══
