@@ -1179,11 +1179,16 @@ onSnapshot && false; // placeholder — Firebase listens set below in module
 
 function setETab(tab){
   ['lista','contagem'].forEach(t=>{
-    document.getElementById('esub-'+t).style.display = t===tab ? '' : 'none';
-    document.getElementById('et-'+t).classList.toggle('on', t===tab);
+    const el = document.getElementById('esub-'+t);
+    if(el) el.style.display = t===tab ? '' : 'none';
+    const btn = document.getElementById('et-'+t);
+    if(btn) btn.classList.toggle('on', t===tab);
   });
-  if(tab==='contagem') renderContagem();
-  else renderEstoque();
+  // Small delay to ensure display:'' is applied before render reads DOM
+  setTimeout(()=>{
+    if(tab==='contagem') renderContagem();
+    else renderEstoque();
+  }, 10);
 }
 
 function setCC(f){
@@ -1193,6 +1198,11 @@ function setCC(f){
 }
 
 function renderContagem(){
+  // Make sure subtab is visible before reading DOM
+  const subEl = document.getElementById('esub-contagem');
+  const wasHidden = subEl && subEl.style.display === 'none';
+  if(wasHidden) subEl.style.display = '';
+
   const q    = norm(document.getElementById('contsrch')?.value||'');
   const cat  = document.getElementById('contcat')?.value||'';
   const sel  = document.getElementById('contcat');
@@ -1203,6 +1213,8 @@ function renderContagem(){
       const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
     });
   }
+
+  if(wasHidden) subEl.style.display = 'none';
 
   const today = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   if(document.getElementById('contDate')) document.getElementById('contDate').textContent = '📅 '+today;
@@ -1220,16 +1232,21 @@ function renderContagem(){
   const total  = RAW.items.length;
   const done   = Object.keys(contagens).length;
   const pct    = total ? Math.round(done/total*100) : 0;
-  document.getElementById('contProg').style.width = pct+'%';
-  document.getElementById('contPct').textContent  = pct+'%';
-  document.getElementById('contCount').textContent = `${done}/${total} contados`;
-  document.getElementById('contSub').textContent   = `${done}/${total} contados`;
+  const progEl = document.getElementById('contProg');
+  const pctEl  = document.getElementById('contPct');
+  const cntEl  = document.getElementById('contCount');
+  const subEl2 = document.getElementById('contSub');
+  if(progEl) progEl.style.width = pct+'%';
+  if(pctEl)  pctEl.textContent  = pct+'%';
+  if(cntEl)  cntEl.textContent  = `${done}/${total} contados`;
+  if(subEl2) subEl2.textContent = `${done}/${total} contados`;
 
   // Group by category
   const cats={};
   items.forEach(it=>{ const c=it.subgrupo||'GERAL'; (cats[c]=cats[c]||[]).push(it); });
 
   const grid = document.getElementById('contGrid');
+  if(!grid) return;
   if(!Object.keys(cats).length){
     grid.innerHTML='<div class="empty"><div class="ei">🔍</div><h3>Nenhum item</h3></div>';
     return;
