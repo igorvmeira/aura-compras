@@ -1198,6 +1198,33 @@ function setCC(f){
   renderContagem();
 }
 
+function contRowHTML(it){
+  const c    = contagens[it.produto];
+  const done = !!c;
+  return `<div class="irow ${done?'bought':''}" style="grid-template-columns:28px 1fr auto auto">
+  <div class="chk ${done?'ck-buy':''}" style="cursor:default">${done?'✓':''}</div>
+  <div class="iinfo">
+    <div class="iname">${it.produto}</div>
+    <div class="itags">
+      ${done
+        ? `<span class="tag t-prc">✓ ${c.qty} un</span><span class="tag t-obs">🕐 ${c.date}</span>`
+        : `<span class="tag" style="border-color:#b8323230;color:var(--red)">Não contado</span>`}
+      ${it.saldo!=null?`<span class="tag t-sld">Anterior: ${Math.round(it.saldo)}</span>`:''}
+    </div>
+  </div>
+  <div class="iqty">
+    <b style="color:${done?'var(--green)':'var(--muted)'}">${done?c.qty:'—'}</b>
+    <small>un</small>
+  </div>
+  <div class="iacts">
+    <button class="abtn ab-buy ${done?'on':''}"
+      onclick="openContModal('${esc(it.produto)}','${esc(it.subgrupo||'')}',${it.saldo||0})">
+      ${done?'✏️ Editar':'+ Contar'}
+    </button>
+  </div>
+</div>`;
+}
+
 function renderContagem(){
   const q   = norm(document.getElementById('contsrch')?.value||'');
   const cat = document.getElementById('contcat')?.value||'';
