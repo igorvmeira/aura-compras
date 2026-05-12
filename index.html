@@ -40,6 +40,22 @@ signInAnonymously(auth).then(() => {
   onSnapshot(doc(db,'gestao','quotes'), s => {
     if(s.exists()){ window.extraQuotes = s.data().list||[]; window._rq && window._rq(); }
   });
+  onSnapshot(doc(db,'gestao','contagens'), s => {
+    if(s.exists()){ contagens = s.data(); window._rcont && window._rcont(); }
+  });
+  onSnapshot(doc(db,'gestao','vendas_import'), s => {
+    if(s.exists() && s.data().items){
+      vendasImportadas = s.data().items;
+      vendasPeriodo    = s.data().date||'';
+      const pi = document.getElementById('vPeriodInfo');
+      const pl = document.getElementById('vPeriodLabel');
+      if(pi&&pl&&vendasImportadas.length){
+        pi.style.display='';
+        pl.textContent=`Importado em ${vendasPeriodo} · ${vendasImportadas.length} produtos`;
+      }
+      window._rv && window._rv();
+    }
+  });
 }).catch(()=>{ document.getElementById('syncDot').style.background='var(--red)'; });
 
 window._save = async (col, data) => {
@@ -377,15 +393,60 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
 
 <!-- ═══════════ VENDAS ═══════════ -->
 <div class="page" id="page-vendas">
-  <div class="stitle">📈 Ranking de Vendas <small id="vSub"></small></div>
-  <div class="frow">
+
+  <!-- UPLOAD SECTION -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:18px">
+    <div class="stitle" style="margin-bottom:10px">📤 Importar Planilha de Vendas <small>Excel ou CSV com itens vendidos no período</small></div>
+    <div class="uzone" id="vzoneVendas" style="padding:20px;margin-bottom:10px">
+      <input type="file" id="fileVendas" accept=".xlsx,.xls,.csv">
+      <div style="font-size:1.6rem;margin-bottom:6px">📊</div>
+      <div style="font-family:'Syne',sans-serif;font-size:.88rem;margin-bottom:3px" id="vzH">Arraste ou clique — planilha de vendas</div>
+      <div style="font-size:.73rem;color:var(--muted)">Excel (.xlsx) ou CSV · colunas: Produto, Qtd Vendida</div>
+    </div>
+    <div id="vMapPanel" style="display:none;margin-bottom:10px">
+      <div style="font-size:.78rem;color:var(--accent);font-weight:600;margin-bottom:8px">⚙️ Configurar colunas</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">📌 Nome do produto *</label><select class="fi" id="vColNome" style="min-width:160px"></select></div>
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">🔢 Quantidade vendida *</label><select class="fi" id="vColQtd" style="min-width:160px"></select></div>
+        <div><label style="font-size:.7rem;color:var(--muted);display:block;margin-bottom:3px">💰 Valor total (opcional)</label><select class="fi" id="vColValor" style="min-width:160px"><option value="">— não usar —</option></select></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" onclick="importVendas()">✅ Importar</button>
+        <button class="btn-g" onclick="cancelVImport()">Cancelar</button>
+      </div>
+    </div>
+    <div id="vPeriodInfo" style="display:none;font-size:.75rem;color:var(--muted)">
+      📅 <span id="vPeriodLabel"></span>
+      <button onclick="clearVendas()" style="margin-left:10px;background:transparent;border:1px solid #f5656540;color:var(--red);border-radius:5px;padding:1px 8px;font-size:.68rem;cursor:pointer">Limpar dados</button>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats" style="margin-bottom:14px">
+    <div class="stat sy">📦 Produtos: <b id="vStatProd">0</b></div>
+    <div class="stat sg">🔢 Total vendido: <b id="vStatQtd">0</b></div>
+    <div class="stat sb">💰 Receita: <b id="vStatVal">—</b></div>
+    <div class="stat sr">⚠️ Precisam reposição: <b id="vStatNec">0</b></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="stitle">📈 Análise de Vendas & Necessidade de Compra <small id="vSub"></small></div>
+  <div class="frow" style="margin-bottom:12px">
     <input class="fi" type="text" id="vsrch" placeholder="🔍 Buscar produto..." oninput="renderVendas()">
+    <button class="fb on" id="vf-all"     onclick="setVF('all')">Todos</button>
+    <button class="fb"    id="vf-comprar" onclick="setVF('comprar')">⚠️ Repor</button>
+    <button class="fb"    id="vf-ok"      onclick="setVF('ok')">✅ OK</button>
   </div>
   <div style="overflow-x:auto">
     <table class="tbl">
       <thead><tr>
-        <th style="width:36px">#</th><th>Produto</th><th>Categoria</th>
-        <th>Qtd Vendida</th><th>Cons./mês</th><th>Preço Venda</th>
+        <th style="width:34px">#</th>
+        <th>Produto</th>
+        <th>Grupo</th>
+        <th>Qtd Vendida</th>
+        <th>Estoque Atual</th>
+        <th>Necessidade Pedido</th>
+        <th>Fornecedor</th>
         <th style="min-width:70px">Volume</th>
       </tr></thead>
       <tbody id="vBody"></tbody>
@@ -393,26 +454,31 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 </div>
 
-<!-- ═══════════ ESTOQUE ═══════════ -->
-<div class="page" id="page-estoque">
-  <div class="stitle">📦 Estoque Completo <small id="eSub"></small></div>
-  <div class="frow">
-    <input class="fi" type="text" id="esrch" placeholder="🔍 Buscar produto..." oninput="renderEstoque()">
-    <select class="fi" id="ecat" onchange="renderEstoque()" style="flex:none;min-width:auto">
-      <option value="">Todos os grupos</option>
-    </select>
-    <button class="fb on" id="ef-all" onclick="setEF('all')">Todos</button>
-    <button class="fb"    id="ef-buy" onclick="setEF('buy')">A comprar</button>
-    <button class="fb"    id="ef-ok"  onclick="setEF('ok')">OK</button>
-  </div>
-  <div style="overflow-x:auto">
-    <table class="tbl">
-      <thead><tr>
-        <th>Produto</th><th>Grupo</th><th>Saldo</th>
-        <th>Necessidade</th><th>Fornecedor</th><th>Preço</th><th>Vendas 30D</th>
-      </tr></thead>
-      <tbody id="eBody"></tbody>
-    </table>
+<!-- CONTAGEM MODAL -->
+<div class="modal-bg" id="contModal">
+  <div class="modal" style="max-width:420px">
+    <h4 id="cModal-title" style="font-size:.85rem;margin-bottom:4px"></h4>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">
+      <span id="cModal-grupo"></span> · <span id="cModal-ant"></span>
+    </div>
+    <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Quantidade contada *</label>
+    <input id="cModal-qty" type="number" min="0" step="0.5"
+      placeholder="Ex: 12"
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+      padding:10px 12px;border-radius:8px;font-size:1.1rem;font-family:'Syne',sans-serif;
+      font-weight:700;margin-bottom:10px"
+      onkeydown="if(event.key==='Enter') saveContItem()">
+    <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Observação (opcional)</label>
+    <input id="cModal-obs" type="text" placeholder="Ex: abrindo uma caixa nova..."
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+      padding:8px 12px;border-radius:8px;font-size:.84rem;font-family:'DM Sans',sans-serif;margin-bottom:12px">
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:12px" id="cModal-dateInfo">
+      🕐 Data/hora registrada automaticamente ao salvar
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn-c" onclick="closeContModal()">Cancelar</button>
+      <button class="btn" onclick="saveContItem()">💾 Salvar Contagem</button>
+    </div>
   </div>
 </div>
 
@@ -461,6 +527,7 @@ let pendExt = null;
 // Expõe callbacks pro Firebase module
 window._rc = ()=>renderCompras();
 window._rq = ()=>renderCotacoes();
+window._rv = ()=>renderVendas();
 
 // ═══ UTILITÁRIOS ═══
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -867,23 +934,348 @@ function hideAI(){ document.getElementById('aiBox').classList.remove('show'); }
 
 // ═══ VENDAS ═══
 function renderVendas(){
-  const q=norm(document.getElementById('vsrch').value||'');
-  const items=RAW.vendas.filter(v=>!q||norm(v.nome).includes(q));
-  document.getElementById('vSub').textContent=`${items.length} produtos`;
-  const maxQ=Math.max(...items.map(v=>v.qty||0));
-  document.getElementById('vBody').innerHTML=items.map((v,i)=>{
-    const pct=maxQ?Math.round((v.qty||0)/maxQ*100):0;
-    const preco=RAW.precos_bar[v.nome];
+  const q = norm(document.getElementById('vsrch')?.value||'');
+
+  // Use imported data if available, else fall back to RAW.vendas
+  let source = vendasImportadas.length
+    ? vendasImportadas.map(v=>({
+        nome: v.nome,
+        qty:  v.qtd,
+        valor: v.valor,
+        // try to match estoque item
+        estoqueItem: RAW.items.find(it=>sameProduct(it.produto, v.nome))
+      }))
+    : RAW.vendas.map(v=>({
+        nome: v.nome,
+        qty:  v.qty,
+        valor: null,
+        estoqueItem: RAW.items.find(it=>sameProduct(it.produto, v.nome))
+      }));
+
+  // Filter
+  let items = source.filter(v=>{
+    const mq = !q || norm(v.nome).includes(q);
+    if(!mq) return false;
+    if(vendasFilter==='all') return true;
+    const saldo = v.estoqueItem?.saldo ?? null;
+    const precisa = saldo === null || saldo < v.qty;
+    if(vendasFilter==='comprar') return precisa;
+    if(vendasFilter==='ok')      return !precisa;
+    return true;
+  });
+
+  // Sort by qty desc
+  items.sort((a,b)=>(b.qty||0)-(a.qty||0));
+
+  // Stats
+  const totalProd = items.length;
+  const totalQtd  = items.reduce((s,v)=>s+(v.qty||0),0);
+  const totalVal  = items.reduce((s,v)=>s+(v.valor||0),0);
+  const necCount  = items.filter(v=>{
+    const saldo = v.estoqueItem?.saldo ?? null;
+    return saldo === null || saldo < (v.qty||0);
+  }).length;
+  document.getElementById('vStatProd').textContent = totalProd;
+  document.getElementById('vStatQtd').textContent  = totalQtd.toLocaleString('pt-BR');
+  document.getElementById('vStatVal').textContent  = totalVal > 0 ? 'R$ '+totalVal.toLocaleString('pt-BR',{minimumFractionDigits:2}) : '—';
+  document.getElementById('vStatNec').textContent  = necCount;
+  document.getElementById('vSub').textContent = `${totalProd} produtos`;
+
+  const maxQ = Math.max(...items.map(v=>v.qty||0), 1);
+
+  document.getElementById('vBody').innerHTML = items.map((v,i)=>{
+    const est     = v.estoqueItem;
+    const saldo   = est?.saldo ?? null;
+    const qtdVend = v.qty||0;
+    // Necessidade = quanto precisa pedir (vendido - saldo atual, se positivo)
+    const nec     = saldo !== null ? Math.max(0, qtdVend - saldo) : null;
+    const precisaComprar = saldo === null || saldo < qtdVend;
+    const pct     = Math.round(qtdVend/maxQ*100);
+    const fornec  = est?.fornec1 || est?.fornec2 || '—';
+
     return`<tr>
       <td><span class="rank">${i+1}</span></td>
       <td style="font-weight:500">${v.nome}</td>
-      <td style="color:var(--muted);font-size:.73rem">—</td>
-      <td>${v.qty?.toLocaleString('pt-BR')||'—'}</td>
-      <td style="color:var(--muted)">${v.consumo_medio?.toLocaleString('pt-BR')||'—'}</td>
-      <td style="color:var(--accent)">${preco?'R$ '+preco.toFixed(2):'—'}</td>
+      <td style="color:var(--muted);font-size:.72rem">${est?.subgrupo||'—'}</td>
+      <td>${qtdVend.toLocaleString('pt-BR')}</td>
+      <td style="color:${saldo===null?'var(--muted)':saldo<qtdVend?'var(--red)':'var(--green)'};font-weight:600">
+        ${saldo!==null?Math.round(saldo):'—'}
+      </td>
+      <td>${precisaComprar
+        ? `<span style="color:var(--red);font-weight:700">⚠️ ${nec!==null?'+'+Math.ceil(nec)+' un':'Verificar'}</span>`
+        : `<span style="color:var(--green)">✅ OK</span>`}
+      </td>
+      <td style="color:var(--blue);font-size:.79rem">${fornec}</td>
       <td><div class="bar-w"><div class="bar-f" style="width:${pct}%"></div></div></td>
     </tr>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  CONTAGEM / INVENTÁRIO
+// ═══════════════════════════════════════════════
+let contagens    = {};   // produto -> {qty, date, user}
+let contFilter   = 'all';
+
+// Load from Firebase
+window._rcont = () => renderContagem();
+
+onSnapshot && false; // placeholder — Firebase listens set below in module
+
+function setETab(tab){
+  ['lista','contagem'].forEach(t=>{
+    document.getElementById('esub-'+t).style.display = t===tab ? '' : 'none';
+    document.getElementById('et-'+t).classList.toggle('on', t===tab);
+  });
+  if(tab==='contagem') renderContagem();
+  else renderEstoque();
+}
+
+function setCC(f){
+  contFilter=f;
+  ['all','pending','done'].forEach(k=>document.getElementById('cc-'+k).classList.toggle('on',k===f));
+  renderContagem();
+}
+
+function renderContagem(){
+  const q    = norm(document.getElementById('contsrch')?.value||'');
+  const cat  = document.getElementById('contcat')?.value||'';
+  const sel  = document.getElementById('contcat');
+
+  // Populate dropdown once
+  if(sel && sel.options.length<=1){
+    [...new Set(RAW.items.map(i=>i.subgrupo).filter(Boolean))].sort().forEach(c=>{
+      const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);
+    });
+  }
+
+  const today = new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(document.getElementById('contDate')) document.getElementById('contDate').textContent = '📅 '+today;
+
+  let items = RAW.items.filter(it=>{
+    const mq = !q || norm(it.produto).includes(q);
+    const mc = !cat || it.subgrupo===cat;
+    const mf = contFilter==='all'
+      || (contFilter==='pending' && !contagens[it.produto])
+      || (contFilter==='done'    &&  contagens[it.produto]);
+    return mq && mc && mf;
+  });
+
+  // Stats
+  const total  = RAW.items.length;
+  const done   = Object.keys(contagens).length;
+  const pct    = total ? Math.round(done/total*100) : 0;
+  document.getElementById('contProg').style.width = pct+'%';
+  document.getElementById('contPct').textContent  = pct+'%';
+  document.getElementById('contCount').textContent = `${done}/${total} contados`;
+  document.getElementById('contSub').textContent   = `${done}/${total} contados`;
+
+  // Group by category
+  const cats={};
+  items.forEach(it=>{ const c=it.subgrupo||'GERAL'; (cats[c]=cats[c]||[]).push(it); });
+
+  const grid = document.getElementById('contGrid');
+  if(!Object.keys(cats).length){
+    grid.innerHTML='<div class="empty"><div class="ei">🔍</div><h3>Nenhum item</h3></div>';
+    return;
+  }
+
+  grid.innerHTML = Object.keys(cats).sort().map(cat=>{
+    const ci   = cats[cat];
+    const icon = ICONS[cat]||'📦';
+    return `<div class="cat-block">
+  <div class="cat-head" style="cursor:default">
+    <div class="ch-l"><span class="cat-icon">${icon}</span><span class="cat-name">${cat}</span></div>
+    <div class="ch-r"><span>${ci.filter(i=>contagens[i.produto]).length}/${ci.length} contados</span></div>
+  </div>
+  <div class="cat-items">
+    ${ci.map(it => contRowHTML(it)).join('')}
+  </div>
+</div>`;
+  }).join('');
+}
+
+function contRowHTML(it){
+  const c   = contagens[it.produto];
+  const done = !!c;
+  return `<div class="irow ${done?'bought':''}" id="crow_${esc2(it.produto)}">
+  <div class="chk ${done?'ck-buy':''}" style="cursor:default">${done?'✓':''}</div>
+  <div class="iinfo">
+    <div class="iname">${it.produto}</div>
+    <div class="itags">
+      ${done ? `<span class="tag t-prc">✓ ${c.qty} ${it.subgrupo==='AGUAS'||it.subgrupo==='CERVEJAS'?'un':'un'}</span>
+               <span class="tag t-obs">🕐 ${c.date}</span>` :
+               `<span class="tag" style="border-color:#f5656530;color:var(--red)">Não contado</span>`}
+      <span class="tag t-sld">Ant: ${it.saldo!=null?Math.round(it.saldo):'—'}</span>
+    </div>
+  </div>
+  <div class="iqty">
+    <b style="color:${done?'var(--green)':'var(--muted)'}">${done?c.qty:'—'}</b>
+    <small>un</small>
+  </div>
+  <div class="iacts">
+    <button class="abtn ab-buy ${done?'on':''}" onclick="openContModal('${esc(it.produto)}','${esc(it.subgrupo||'')}',${it.saldo||0})">
+      ${done?'✏️ Editar':'+ Contar'}
+    </button>
+  </div>
+</div>`;
+}
+
+// Modal de contagem
+let contModalId = null;
+
+function openContModal(produto, grupo, saldoAnt){
+  contModalId = produto;
+  const c = contagens[produto];
+  document.getElementById('cModal-title').textContent = produto;
+  document.getElementById('cModal-grupo').textContent = grupo;
+  document.getElementById('cModal-ant').textContent   = saldoAnt!=null ? Math.round(saldoAnt)+' un (anterior)' : '—';
+  document.getElementById('cModal-qty').value         = c ? c.qty : '';
+  document.getElementById('cModal-obs').value         = c ? (c.obs||'') : '';
+  document.getElementById('contModal').classList.add('open');
+  setTimeout(()=>document.getElementById('cModal-qty').focus(),100);
+}
+
+function closeContModal(){ document.getElementById('contModal').classList.remove('open'); contModalId=null; }
+
+async function saveContItem(){
+  if(!contModalId) return;
+  const qty = parseFloat(document.getElementById('cModal-qty').value);
+  if(isNaN(qty)||qty<0){ toast('Informe uma quantidade válida','err'); return; }
+  const obs = document.getElementById('cModal-obs').value.trim();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})
+                + ' ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  contagens[contModalId] = { qty, obs, date: dateStr };
+  closeContModal();
+  renderContagem();
+  toast('Contagem salva ✓','ok');
+}
+
+async function saveContagem(){
+  await fbSave('contagens', contagens);
+  toast(`${Object.keys(contagens).length} itens salvos no Firebase ✓`,'ok');
+}
+
+function exportContagem(){
+  const now = new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  let csv = 'Produto;Grupo;Qtd Contada;Data Contagem;Obs\n';
+  RAW.items.forEach(it=>{
+    const c = contagens[it.produto];
+    csv += `${it.produto};${it.subgrupo||''};${c?c.qty:''};${c?c.date:''};${c?c.obs||'':''}\n`;
+  });
+  const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `inventario_${now}.csv`;
+  a.click();
+  toast('CSV exportado ✓','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  VENDAS — UPLOAD & ANÁLISE
+// ═══════════════════════════════════════════════
+let vendasImportadas = [];   // [{nome, qtd, valor}]
+let vendasPeriodo    = '';
+let vendasFilter     = 'all';
+let vRawHeaders      = [];
+let vRawRows         = [];
+
+function setVF(f){
+  vendasFilter=f;
+  ['all','comprar','ok'].forEach(k=>document.getElementById('vf-'+k).classList.toggle('on',k===f));
+  renderVendas();
+}
+
+// File upload handler
+document.getElementById('fileVendas').addEventListener('change', function(){
+  const file = this.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      let wb;
+      if(file.name.endsWith('.csv')) wb=XLSX.read(ev.target.result,{type:'string'});
+      else wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!data||data.length<2){ toast('Planilha vazia','err'); return; }
+      // find header row
+      let hi=0;
+      for(let r=0;r<Math.min(6,data.length);r++){
+        if(data[r].filter(c=>String(c).trim()).length>2){ hi=r; break; }
+      }
+      vRawHeaders = data[hi].map((h,i)=>({label:String(h||'Col '+(i+1)),idx:i}));
+      vRawRows    = data.slice(hi+1).filter(r=>r.some(c=>c!=''));
+      document.getElementById('vzH').textContent = file.name+' · '+vRawRows.length+' linhas';
+      showVMapping();
+    }catch(e){ toast('Erro ao ler: '+e.message,'err'); }
+  };
+  if(file.name.endsWith('.csv')) reader.readAsText(file,'ISO-8859-1');
+  else reader.readAsArrayBuffer(file);
+  this.value='';
+});
+
+function showVMapping(){
+  const panel = document.getElementById('vMapPanel');
+  panel.style.display='';
+  // populate selects
+  ['vColNome','vColQtd','vColValor'].forEach(id=>{
+    const sel=document.getElementById(id);
+    const first=id==='vColValor'?'<option value="">— não usar —</option>':'';
+    sel.innerHTML=first+vRawHeaders.map(h=>`<option value="${h.idx}">${h.label}</option>`).join('');
+  });
+  // auto-detect
+  const autoMap = {
+    vColNome:  ['produto','item','nome','descri','description','bebida'],
+    vColQtd:   ['qtd','quantidade','vendido','vendas','qty','total'],
+    vColValor: ['valor','total','receita','revenue','price','preco'],
+  };
+  for(const [id,keys] of Object.entries(autoMap)){
+    const sel=document.getElementById(id);
+    for(const h of vRawHeaders){
+      const lbl=norm(h.label);
+      if(keys.some(k=>lbl.includes(k))){ sel.value=String(h.idx); break; }
+    }
+  }
+}
+
+function importVendas(){
+  const iNome  = parseInt(document.getElementById('vColNome').value);
+  const iQtd   = parseInt(document.getElementById('vColQtd').value);
+  const iValor = document.getElementById('vColValor').value;
+  if(isNaN(iNome)||isNaN(iQtd)){ toast('Selecione Produto e Quantidade','err'); return; }
+
+  const result=[];
+  vRawRows.forEach(row=>{
+    const nome = String(row[iNome]||'').trim();
+    const qtd  = parseFloat(String(row[iQtd]||'').replace(',','.'));
+    if(!nome||isNaN(qtd)) return;
+    const valor = iValor!==''?parseFloat(String(row[parseInt(iValor)]||'').replace(',','.')):null;
+    result.push({nome, qtd, valor:isNaN(valor)?null:valor});
+  });
+
+  if(!result.length){ toast('Nenhum item válido encontrado','err'); return; }
+  vendasImportadas = result;
+  vendasPeriodo    = new Date().toLocaleDateString('pt-BR');
+  document.getElementById('vMapPanel').style.display='none';
+  document.getElementById('vPeriodInfo').style.display='';
+  document.getElementById('vPeriodLabel').textContent =
+    `Importado em ${vendasPeriodo} · ${result.length} produtos`;
+  fbSave('vendas_import', {items:result, date:vendasPeriodo});
+  toast(`${result.length} produtos importados ✓`,'ok');
+  renderVendas();
+}
+
+function cancelVImport(){
+  document.getElementById('vMapPanel').style.display='none';
+  vRawHeaders=[]; vRawRows=[];
+}
+
+function clearVendas(){
+  if(!confirm('Limpar dados de vendas importados?')) return;
+  vendasImportadas=[]; vendasPeriodo='';
+  document.getElementById('vPeriodInfo').style.display='none';
+  renderVendas();
 }
 
 // ═══ ESTOQUE ═══
@@ -951,6 +1343,17 @@ window._seedQuotes = async function() {
 };
 
 // ═══ INIT ═══
+// Vendas upload zone drag/drop
+const vzVendas = document.getElementById('vzoneVendas');
+if(vzVendas){
+  vzVendas.addEventListener('dragover',e=>{e.preventDefault();vzVendas.classList.add('drag')});
+  vzVendas.addEventListener('dragleave',()=>vzVendas.classList.remove('drag'));
+  vzVendas.addEventListener('drop',e=>{
+    e.preventDefault(); vzVendas.classList.remove('drag');
+    const file=e.dataTransfer.files[0];
+    if(file){ document.getElementById('fileVendas').files=e.dataTransfer.files; document.getElementById('fileVendas').dispatchEvent(new Event('change')); }
+  });
+}
 renderCompras();
 // Aguarda Firebase conectar antes de seed
 setTimeout(()=>{ if(window._seedQuotes) window._seedQuotes(); }, 1500);
