@@ -859,11 +859,21 @@ async function fbSave(col, val){
 // ═══ UTILITÁRIOS ═══
 const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 function sameProduct(a,b){
-  const clean = s => norm(s).replace(/\b(garrafa|combo|lata|fardo|kit|cx|caixa|pct|pacote|bottle|und|evento)\b/g,'').replace(/\s+/g,' ').trim();
-  const ca=clean(a),cb=clean(b);
+  const clean = s => norm(s)
+    .replace(/\b(garrafa|combo|lata|fardo|kit|cx|caixa|pct|pacote|bottle|und|evento|tradicional|original|classico|classic|regular|standard|1l|700ml|750ml|1000ml)\b/g,'')
+    .replace(/\s+/g,' ').trim();
+  const ca=clean(a), cb=clean(b);
   if(ca===cb) return true;
-  if(ca.length>4&&cb.includes(ca)) return true;
-  if(cb.length>4&&ca.includes(cb)) return true;
+  // one contains the other (min 4 chars)
+  if(ca.length>=4 && cb.includes(ca)) return true;
+  if(cb.length>=4 && ca.includes(cb)) return true;
+  // both start with same brand (first word match + at least 4 chars)
+  const wa=ca.split(' ')[0], wb=cb.split(' ')[0];
+  if(wa.length>=4 && wa===wb){
+    // if one is a subset of the other after cleaning
+    const ra=ca.replace(wa,'').trim(), rb=cb.replace(wb,'').trim();
+    if(!ra||!rb) return true; // one is just the brand name
+  }
   return false;
 }
 function e(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;') }
@@ -1317,16 +1327,39 @@ function renderCotacoes(){
   if(supplierFilter) allF=allF.filter(f=>supplierFilter.includes(f));
 
   const pm={};
+
+  // Helper: find existing key in pm that matches product name
+  function findPmKey(name){
+    const candidates = Object.keys(pm);
+    // exact norm match first
+    const nk = norm(name);
+    if(pm[nk]) return nk;
+    // sameProduct fuzzy match
+    return candidates.find(pk => sameProduct(pk, name)) || null;
+  }
+
   RAW.cotacoes.forEach(c=>{
-    const k=norm(c.produto);
-    if(!pm[k])pm[k]={label:c.produto,cat:c.cat,prices:{}};
-    Object.entries(c.precos).forEach(([f,p])=>{pm[k].prices[f]=p;});
+    const existing = findPmKey(c.produto);
+    if(existing){
+      // Merge into existing entry — prefer shorter/cleaner label
+      if(c.produto.length < pm[existing].label.length) pm[existing].label = c.produto;
+      Object.entries(c.precos).forEach(([f,p])=>{pm[existing].prices[f]=p;});
+    } else {
+      const k=norm(c.produto);
+      pm[k]={label:c.produto,cat:c.cat,prices:{}};
+      Object.entries(c.precos).forEach(([f,p])=>{pm[k].prices[f]=p;});
+    }
   });
   window.extraQuotes.forEach(q=>{
     q.items.forEach(it=>{
-      let found=Object.keys(pm).find(pk=>sameProduct(pk,it.name));
-      if(!found){pm[norm(it.name)]={label:it.name,cat:'',prices:{}};found=norm(it.name);}
-      if(it.price!=null)pm[found].prices[q.supplier]=it.price;
+      const found = findPmKey(it.name);
+      if(found){
+        if(it.price!=null) pm[found].prices[q.supplier]=it.price;
+      } else {
+        const k=norm(it.name);
+        pm[k]={label:it.name,cat:'',prices:{}};
+        if(it.price!=null) pm[k].prices[q.supplier]=it.price;
+      }
     });
   });
 
