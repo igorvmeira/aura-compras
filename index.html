@@ -919,7 +919,7 @@ function renderCompras(){
     // needsBuy: true if estoqueReal < min (treat null saldo as 0 when min/max exists)
     const estoqueParaCalc = estoqueReal !== null ? estoqueReal : (min !== null ? 0 : null);
     const needsBuy    = min !== null && estoqueParaCalc !== null && estoqueParaCalc < min;
-    const qtdComprar  = (needsBuy && max !== null) ? Math.ceil(max - (estoqueReal ?? 0)) : null;
+    const qtdComprar  = (needsBuy && min !== null) ? Math.ceil(min - (estoqueReal ?? 0)) : null;
     return {...it, estoqueReal, hasCont, needsBuy, qtdComprar};
   });
 
