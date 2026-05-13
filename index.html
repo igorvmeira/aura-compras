@@ -894,6 +894,33 @@ function setF(f){
   renderCompras();
 }
 
+function getBestPrice(produto){
+  // Build combined price map from RAW.cotacoes + extraQuotes
+  const prices = [];
+
+  // From RAW.cotacoes (planilha)
+  RAW.cotacoes.forEach(c=>{
+    if(sameProduct(c.produto, produto)){
+      Object.entries(c.precos).forEach(([supplier, price])=>{
+        if(price!=null && !isNaN(price)) prices.push({supplier, price: Number(price)});
+      });
+    }
+  });
+
+  // From extraQuotes (uploaded via AI)
+  window.extraQuotes.forEach(q=>{
+    q.items.forEach(it=>{
+      if(sameProduct(it.name, produto) && it.price!=null && !isNaN(it.price)){
+        prices.push({supplier: q.supplier, price: Number(it.price)});
+      }
+    });
+  });
+
+  if(!prices.length) return null;
+  // Return supplier with lowest price
+  return prices.reduce((best, cur) => cur.price < best.price ? cur : best);
+}
+
 function getMin(item){ const c=window.customMinMax[item.produto]; return c?c.min:(item.est_min??null); }
 function getMax(item){ const c=window.customMinMax[item.produto]; return c?c.max:(item.est_max??null); }
 function getDisplayName(p){ return window.customNames[p]||p; }
@@ -987,9 +1014,16 @@ function rowHTML(it){
   const _min=getMin(it),_max=getMax(it);
   if(_min!=null) tags.push(`<span class="tag">Mín: ${Math.round(_min)}</span>`);
   if(_max!=null) tags.push(`<span class="tag">Máx: ${Math.round(_max)}</span>`);
-  if(it.fornec1) tags.push(`<span class="tag t-sup">🏪 ${it.fornec1}</span>`);
-  if(it.preco1)  tags.push(`<span class="tag t-prc">💰 R$ ${it.preco1.toFixed(2)}</span>`);
-  if(it.fornec2&&it.preco2) tags.push(`<span class="tag t-sup" style="opacity:.65">🏪 ${it.fornec2} R$${it.preco2.toFixed(2)}</span>`);
+  // Get best price from cotacoes (extraQuotes + RAW.cotacoes)
+  const _bestPrice = getBestPrice(it.produto);
+  if(_bestPrice){
+    tags.push(`<span class="tag t-sup">🏪 ${_bestPrice.supplier}</span>`);
+    tags.push(`<span class="tag t-prc">💰 R$ ${_bestPrice.price.toFixed(2)}</span>`);
+  } else {
+    if(it.fornec1) tags.push(`<span class="tag t-sup">🏪 ${it.fornec1}</span>`);
+    if(it.preco1)  tags.push(`<span class="tag t-prc">💰 R$ ${it.preco1.toFixed(2)}</span>`);
+    if(it.fornec2&&it.preco2) tags.push(`<span class="tag t-sup" style="opacity:.65">🏪 ${it.fornec2} R$${it.preco2.toFixed(2)}</span>`);
+  }
   if(nt) tags.push(`<span class="tag t-obs">📝 ${nt.substring(0,26)}${nt.length>26?'…':''}</span>`);
   const v=RAW.vendas.find(v=>sameProduct(v.nome,id));
   if(v?.consumo_medio) tags.push(`<span class="tag t-vtag">📈 ${v.consumo_medio}/mês</span>`);
