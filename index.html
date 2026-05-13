@@ -327,6 +327,9 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <button class="fb" id="fh" onclick="toggleShowHidden()" title="Mostrar/ocultar itens escondidos">🙈 <span id="hiddenCount"></span></button>
     <button class="fb" onclick="showHiddenPanel()" title="Gerenciar ocultos">⚙️ Ocultos</button>
   </div>
+  <!-- Painel de itens ocultos -->
+  <div id="hiddenPanel" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:400px;overflow-y:auto"></div>
+
   <div id="clist"></div>
 </div>
 
@@ -886,6 +889,15 @@ function hideItem(id){
   }
 }
 
+function unhideAll(){
+  window.hiddenItems = [];
+  hiddenItems = window.hiddenItems;
+  localStorage.setItem('hiddenItems', JSON.stringify([]));
+  document.getElementById('hiddenPanel').style.display='none';
+  renderCompras();
+  toast('Todos os itens restaurados ✓','ok');
+}
+
 function unhideItem(id){
   window.hiddenItems = window.hiddenItems.filter(h=>h!==id);
   hiddenItems = window.hiddenItems;
@@ -907,18 +919,32 @@ function toggleShowHidden(){
 // ── Hidden items manager panel ──
 function showHiddenPanel(){
   hiddenItems = window.hiddenItems;
-  if(!hiddenItems.length){ toast('Nenhum item oculto', ''); return; }
-  const list = hiddenItems.map(id=>`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:.85rem">${id}</span>
-      <button onclick="unhideItem('${id.replace(/'/g,"\'")}')" style="background:var(--green);color:#111;border:none;padding:3px 10px;border-radius:6px;font-size:.73rem;cursor:pointer;font-weight:600">Mostrar</button>
-    </div>`).join('');
-  document.getElementById('mTitle').textContent = '🙈 Itens Ocultos';
-  document.getElementById('mText').style.display='none';
-  document.getElementById('modal').classList.add('open');
-  // Inject list into modal
-  const extra = document.getElementById('modal-extra-content');
-  if(extra){ extra.innerHTML = list; extra.style.display='block'; }
+  const panel = document.getElementById('hiddenPanel');
+  if(!panel) return;
+  if(panel.style.display === 'block'){ panel.style.display='none'; return; }
+
+  if(!hiddenItems.length){
+    panel.innerHTML='<div style="padding:14px 16px;font-size:.82rem;color:var(--muted)">✅ Nenhum item oculto no momento.</div>';
+  } else {
+    panel.innerHTML = `
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <span style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700">🙈 Itens Ocultos (${hiddenItems.length})</span>
+        <div style="display:flex;gap:8px">
+          <button onclick="unhideAll()" style="background:var(--green);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">✅ Restaurar todos</button>
+          <button onclick="document.getElementById('hiddenPanel').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:7px;font-size:.75rem;cursor:pointer">Fechar</button>
+        </div>
+      </div>
+      ${hiddenItems.map(id=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+        <span style="font-size:.84rem;font-weight:500">${id}</span>
+        <button onclick="unhideItem('${id.replace(/\/g,'\\').replace(/'/g,"\'")}')"
+          style="background:var(--accent);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700;white-space:nowrap">
+          👁 Restaurar
+        </button>
+      </div>`).join('')}
+    `;
+  }
+  panel.style.display = 'block';
 }
 
 async function cycle(id){
