@@ -845,7 +845,7 @@ let historicoContagens = window.historicoContagens;
 window._rc    = ()=>renderCompras();
 window._rq    = ()=>renderCotacoes();
 window._rv    = ()=>{renderVendas();if(document.getElementById('page-acuracia')?.classList.contains('on'))renderAcuracia();};
-window._rcont = ()=>{contagens=window.contagens;renderContagem();if(document.getElementById('page-acuracia')?.classList.contains('on'))renderAcuracia();};
+window._rcont = ()=>{contagens=window.contagens;renderContagem();renderCompras();if(document.getElementById('page-acuracia')?.classList.contains('on'))renderAcuracia();};
 window._rhist = ()=>{historicoContagens=window.historicoContagens;if(document.getElementById('esub-historico')?.style.display==='block')renderHistorico();};
 
 // ═══ FIREBASE SAVE ═══
@@ -906,14 +906,20 @@ function renderCompras(){
   hiddenItems = window.hiddenItems;
   const showHidden = window._showHidden||false;
 
+  // Always sync contagens from Firebase-updated window object
+  contagens = window.contagens;
+
   const effectiveItems = RAW.items.map(it=>{
     const cont        = contagens[it.produto];
-    const estoqueReal = cont ? cont.qty : it.saldo;
+    // Use contagem if available, else saldo da planilha, else 0 (sem info = assume zerado)
+    const estoqueReal = cont ? cont.qty : (it.saldo !== null && it.saldo !== undefined ? it.saldo : null);
     const hasCont     = !!cont;
     const min         = getMin(it);
     const max         = getMax(it);
-    const needsBuy    = min!==null && estoqueReal!==null && estoqueReal < min;
-    const qtdComprar  = (needsBuy && max!==null) ? Math.ceil(max - estoqueReal) : null;
+    // needsBuy: true if estoqueReal < min (treat null saldo as 0 when min/max exists)
+    const estoqueParaCalc = estoqueReal !== null ? estoqueReal : (min !== null ? 0 : null);
+    const needsBuy    = min !== null && estoqueParaCalc !== null && estoqueParaCalc < min;
+    const qtdComprar  = (needsBuy && max !== null) ? Math.ceil(max - (estoqueReal ?? 0)) : null;
     return {...it, estoqueReal, hasCont, needsBuy, qtdComprar};
   });
 
@@ -971,8 +977,13 @@ function rowHTML(it){
   const cc=st==='bought'?'ck-buy':st==='received'?'ck-recv':'';
   const ct=st==='bought'?'✓':st==='received'?'✓✓':'';
   const tags=[];
-  if(it.hasCont) tags.push(`<span class="tag t-prc">🔢 Contagem: ${it.estoqueReal}</span>`);
-  else tags.push(`<span class="tag t-sld">📋 Saldo: ${it.estoqueReal!=null?Math.round(it.estoqueReal):'—'}</span>`);
+  if(it.hasCont){
+    tags.push(`<span class="tag t-prc">🔢 Contagem: ${it.estoqueReal}</span>`);
+  } else if(it.estoqueReal !== null && it.estoqueReal !== undefined){
+    tags.push(`<span class="tag t-sld">📋 Saldo: ${Math.round(it.estoqueReal)}</span>`);
+  } else {
+    tags.push(`<span class="tag" style="border-color:#b8323230;color:var(--red)">📋 Sem saldo — assumido 0</span>`);
+  }
   const _min=getMin(it),_max=getMax(it);
   if(_min!=null) tags.push(`<span class="tag">Mín: ${Math.round(_min)}</span>`);
   if(_max!=null) tags.push(`<span class="tag">Máx: ${Math.round(_max)}</span>`);
