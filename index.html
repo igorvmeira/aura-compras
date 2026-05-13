@@ -519,6 +519,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
       <button class="fb on" id="cc-all"     onclick="setCC('all')">Todos</button>
       <button class="fb"    id="cc-pending" onclick="setCC('pending')">Não contados</button>
       <button class="fb"    id="cc-done"    onclick="setCC('done')">Contados</button>
+      <button class="fb"    id="cc-hidden"  onclick="toggleShowHiddenCont()" title="Mostrar itens ocultos">🙈 Ocultos</button>
     </div>
     <div class="prog" style="margin-bottom:16px">
       <div class="prog-track"><div class="prog-fill" id="contProg" style="width:0%"></div></div>
@@ -892,6 +893,12 @@ function unhideItem(id){
   renderCompras();
 }
 
+function toggleShowHiddenCont(){
+  window._showHiddenCont = !window._showHiddenCont;
+  document.getElementById('cc-hidden')?.classList.toggle('on', window._showHiddenCont);
+  renderContagem();
+}
+
 function toggleShowHidden(){
   window._showHidden = !window._showHidden;
   renderCompras();
@@ -995,6 +1002,7 @@ function contRowHTML(it){
     <button class="abtn ab-buy ${done?'on':''}" onclick="openContModal('${_e(it.produto)}','${_e(it.subgrupo||'')}')">
       ${done?'✏️ Editar':'+ Contar'}
     </button>
+    <button class="abtn" style="border-color:#b8323230;color:var(--muted);font-size:.65rem" onclick="hideItem('${_e(it.produto)}')" title="Ocultar item">🙈</button>
   </div>
 </div>`;
 }
@@ -1014,11 +1022,14 @@ function renderContagem(){
   const dateEl=document.getElementById('contDate');
   if(dateEl) dateEl.textContent=dateStr;
 
+  hiddenItems = window.hiddenItems;
+  const showHiddenCont = window._showHiddenCont||false;
   const items=RAW.items.filter(it=>{
     const mq=!q||norm(it.produto).includes(q);
     const mc=!cat||it.subgrupo===cat;
     const mf=contFilter==='all'||(contFilter==='pending'&&!contagens[it.produto])||(contFilter==='done'&&contagens[it.produto]);
-    return mq&&mc&&mf;
+    const mh=showHiddenCont||!hiddenItems.includes(it.produto);
+    return mq&&mc&&mf&&mh;
   });
 
   const total=RAW.items.length,done=Object.keys(contagens).length;
