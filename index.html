@@ -324,12 +324,15 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <button class="fb"    id="fb2" onclick="setF('bought')">Comprados</button>
     <button class="fb"    id="fr"  onclick="setF('received')">Recebidos</button>
     <button class="fb danger" onclick="resetAll()">🗑 Limpar</button>
+    <button class="fb" id="fh" onclick="toggleShowHidden()">🙈 <span id="hiddenCount"></span></button>
+    <button class="fb" onclick="showHiddenPanel()">⚙️ Ocultos</button>
     <button class="fb" id="fh" onclick="toggleShowHidden()" title="Mostrar/ocultar itens escondidos">🙈 <span id="hiddenCount"></span></button>
     <button class="fb" onclick="showHiddenPanel()" title="Gerenciar ocultos">⚙️ Ocultos</button>
   </div>
   <!-- Painel de itens ocultos -->
   <div id="hiddenPanel" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:400px;overflow-y:auto"></div>
 
+  <div id="hiddenPanel" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:360px;overflow-y:auto"></div>
   <div id="clist"></div>
 </div>
 
@@ -523,6 +526,8 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
       <button class="fb"    id="cc-pending" onclick="setCC('pending')">Não contados</button>
       <button class="fb"    id="cc-done"    onclick="setCC('done')">Contados</button>
       <button class="fb"    id="cc-hidden"  onclick="toggleShowHiddenCont()">🙈 Ocultar</button>
+      <button class="fb"    onclick="showHiddenPanelCont()">⚙️ Ocultos</button>
+      <button class="fb"    id="cc-hidden"  onclick="toggleShowHiddenCont()">🙈 Ocultar</button>
       <button class="fb"    id="cc-manage"  onclick="showHiddenPanelCont()">⚙️ Ocultos</button>
     </div>
     <div class="prog" style="margin-bottom:16px">
@@ -533,6 +538,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <!-- Painel de itens ocultos (contagem) -->
   <div id="hiddenPanelCont" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:400px;overflow-y:auto"></div>
 
+  <div id="hiddenPanelCont" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:360px;overflow-y:auto"></div>
   <div id="contGrid"></div>
   </div>
 
@@ -700,6 +706,51 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 </div>
 
+<!-- EDIT NAME MODAL -->
+<div class="modal-bg" id="editNameModal">
+  <div class="modal" style="max-width:400px">
+    <h4>✏️ Editar Nome Exibido</h4>
+    <input type="hidden" id="editNameOrig">
+    <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">Nome exibido no sistema</label>
+    <input id="editNameInput" type="text"
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:8px;font-size:.95rem;font-family:'DM Sans',sans-serif;margin-bottom:12px"
+      onkeydown="if(event.key==='Enter') saveEditName()">
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:12px">O nome original na planilha não é alterado.</div>
+    <div class="modal-btns">
+      <button class="mbtn-c" onclick="closeEditName()">Cancelar</button>
+      <button class="btn" onclick="saveEditName()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MIN/MAX MODAL -->
+<div class="modal-bg" id="editMinMaxModal">
+  <div class="modal" style="max-width:400px">
+    <h4>📊 Editar Estoque Mínimo e Máximo</h4>
+    <div id="mmNome" style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:14px"></div>
+    <input type="hidden" id="mmProduto">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">⚠️ Estoque Mínimo</label>
+        <input id="mmMin" type="number" min="0" step="0.5" placeholder="Ex: 6"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:1rem;font-family:'Syne',sans-serif;font-weight:700">
+      </div>
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">✅ Estoque Máximo</label>
+        <input id="mmMax" type="number" min="0" step="0.5" placeholder="Ex: 24"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:1rem;font-family:'Syne',sans-serif;font-weight:700">
+      </div>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:14px">
+      💡 Qtd a comprar = Máximo − Contagem. Mínimo define o gatilho de reposição.
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn-c" onclick="closeMinMax()">Cancelar</button>
+      <button class="btn" onclick="saveMinMax()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONTAGEM MODAL -->
 <div class="modal-bg" id="contModal">
   <div class="modal" style="max-width:420px">
@@ -747,6 +798,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════
 //  DADOS DA PLANILHA (gerado automaticamente)
@@ -783,8 +835,9 @@ let vendasPeriodo    = '';
 let vRawHeaders = [];
 let vRawRows    = [];
 
-// Hidden items (products removed from view)
-window.hiddenItems = JSON.parse(localStorage.getItem('hiddenItems')||'[]');
+window.hiddenItems   = JSON.parse(localStorage.getItem('hiddenItems')||'[]');
+window.customNames   = JSON.parse(localStorage.getItem('customNames')||'{}');
+window.customMinMax  = JSON.parse(localStorage.getItem('customMinMax')||'{}');
 let hiddenItems = window.hiddenItems;
 
 // Aliases (refreshed from window.* at start of each function)
@@ -834,15 +887,18 @@ function setF(f){
   renderCompras();
 }
 
-// Get effective min/max (custom override > planilha value)
-function getMin(item){ const c=window.customMinMax[item.produto]; return c?c.min:item.est_min; }
-function getMax(item){ const c=window.customMinMax[item.produto]; return c?c.max:item.est_max; }
+function getMin(item){ const c=window.customMinMax[item.produto]; return c?c.min:(item.est_min??null); }
+function getMax(item){ const c=window.customMinMax[item.produto]; return c?c.max:(item.est_max??null); }
+function getDisplayName(p){ return window.customNames[p]||p; }
 
 function renderCompras(){
   contagens = window.contagens;
   const q = norm(document.getElementById('csrch')?.value||'');
 
   // Calcular o que precisa comprar com base na contagem real vs mín/máx
+  hiddenItems = window.hiddenItems;
+  const showHidden = window._showHidden||false;
+
   const effectiveItems = RAW.items.map(it=>{
     const cont        = contagens[it.produto];
     const estoqueReal = cont ? cont.qty : it.saldo;
@@ -854,15 +910,11 @@ function renderCompras(){
     return {...it, estoqueReal, hasCont, needsBuy, qtdComprar};
   });
 
-  // Respect hidden items
-  hiddenItems = window.hiddenItems;
-  const showHidden = window._showHidden||false;
-  const toBuy = effectiveItems.filter(i=>i.needsBuy && (showHidden || !hiddenItems.includes(i.produto)));
-  // Update hidden count badge
+  const toBuy = effectiveItems.filter(i=>i.needsBuy && (showHidden||!hiddenItems.includes(i.produto)));
   const hiddenNeedBuy = effectiveItems.filter(i=>i.needsBuy && hiddenItems.includes(i.produto)).length;
-  const hcEl = document.getElementById('hiddenCount');
-  if(hcEl) hcEl.textContent = hiddenNeedBuy>0 ? `(${hiddenNeedBuy})` : '';
-  document.getElementById('fh')?.classList.toggle('on', showHidden);
+  const hcEl=document.getElementById('hiddenCount');
+  if(hcEl) hcEl.textContent=hiddenNeedBuy>0?`(${hiddenNeedBuy})`:'';
+  document.getElementById('fh')?.classList.toggle('on',showHidden);
 
   const filtered = toBuy.filter(it=>{
     const st = window.statuses[it.produto]||'pending';
@@ -914,7 +966,7 @@ function rowHTML(it){
   const tags=[];
   if(it.hasCont) tags.push(`<span class="tag t-prc">🔢 Contagem: ${it.estoqueReal}</span>`);
   else tags.push(`<span class="tag t-sld">📋 Saldo: ${it.estoqueReal!=null?Math.round(it.estoqueReal):'—'}</span>`);
-  const _min=getMin(it), _max=getMax(it);
+  const _min=getMin(it),_max=getMax(it);
   if(_min!=null) tags.push(`<span class="tag">Mín: ${Math.round(_min)}</span>`);
   if(_max!=null) tags.push(`<span class="tag">Máx: ${Math.round(_max)}</span>`);
   if(it.fornec1) tags.push(`<span class="tag t-sup">🏪 ${it.fornec1}</span>`);
@@ -931,162 +983,9 @@ function rowHTML(it){
     <button class="abtn ab-buy ${st==='bought'?'on':''}" onclick="setSt('${e(id)}','bought')">Comprado</button>
     <button class="abtn ab-recv ${st==='received'?'on':''}" onclick="setSt('${e(id)}','received')">Recebido</button>
     <button class="abtn ab-note ${nt?'has':''}" onclick="openNote('${e(id)}','${e(it.produto)}')">📝</button>
-    <button class="abtn" style="border-color:#b8323230;color:var(--muted)" onclick="hideItem('${e(id)}')" title="Ocultar item">🙈</button>
+    <button class="abtn" style="font-size:.65rem;color:var(--muted)" onclick="hideItem('${e(id)}')" title="Ocultar">🙈</button>
   </div>
 </div>`;
-}
-
-function hideItem(id){
-  hiddenItems = window.hiddenItems;
-  if(!hiddenItems.includes(id)){
-    hiddenItems.push(id);
-    window.hiddenItems = hiddenItems;
-    localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-    toast(`"${id.substring(0,20)}" ocultado — clique em 🙈 para ver`, '');
-    renderCompras();
-  }
-}
-
-function unhideAll(){
-  window.hiddenItems = [];
-  hiddenItems = window.hiddenItems;
-  localStorage.setItem('hiddenItems', JSON.stringify([]));
-  document.getElementById('hiddenPanel').style.display='none';
-  renderCompras();
-  toast('Todos os itens restaurados ✓','ok');
-}
-
-function unhideItem(id){
-  window.hiddenItems = window.hiddenItems.filter(h=>h!==id);
-  hiddenItems = window.hiddenItems;
-  localStorage.setItem('hiddenItems', JSON.stringify(hiddenItems));
-  renderCompras();
-}
-
-function showHiddenPanelCont(){
-  hiddenItems = window.hiddenItems;
-  const panel = document.getElementById('hiddenPanelCont');
-  if(!panel) return;
-  if(panel.style.display === 'block'){ panel.style.display='none'; return; }
-  if(!hiddenItems.length){
-    panel.innerHTML='<div style="padding:14px 16px;font-size:.82rem;color:var(--muted)">✅ Nenhum item oculto.</div>';
-  } else {
-    panel.innerHTML = `
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <span style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700">🙈 Itens Ocultos (${hiddenItems.length})</span>
-        <div style="display:flex;gap:8px">
-          <button onclick="unhideAll();showHiddenPanelCont();" style="background:var(--green);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">✅ Restaurar todos</button>
-          <button onclick="document.getElementById('hiddenPanelCont').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:7px;font-size:.75rem;cursor:pointer">Fechar</button>
-        </div>
-      </div>
-      ${hiddenItems.map(id=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
-        <span style="font-size:.84rem;font-weight:500">${id}</span>
-        <button onclick="unhideItem('${id.replace(/\/g,'\\').replace(/'/g,"\'")}')"
-          style="background:var(--accent);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">
-          👁 Restaurar
-        </button>
-      </div>`).join('')}`;
-  }
-  panel.style.display = 'block';
-}
-
-// ── Edit product name ──
-window.customNames   = JSON.parse(localStorage.getItem('customNames')||'{}');
-window.customMinMax  = JSON.parse(localStorage.getItem('customMinMax')||'{}');
-
-function openMinMax(produto){
-  const item = RAW.items.find(i=>i.produto===produto);
-  const custom = window.customMinMax[produto]||{};
-  document.getElementById('mmProduto').value = produto;
-  document.getElementById('mmNome').textContent = window.customNames[produto]||produto;
-  document.getElementById('mmMin').value = custom.min ?? item?.est_min ?? '';
-  document.getElementById('mmMax').value = custom.max ?? item?.est_max ?? '';
-  document.getElementById('editMinMaxModal').classList.add('open');
-  setTimeout(()=>document.getElementById('mmMin').focus(),100);
-}
-function closeMinMax(){ document.getElementById('editMinMaxModal').classList.remove('open'); }
-function saveMinMax(){
-  const prod = document.getElementById('mmProduto').value;
-  const min  = parseFloat(document.getElementById('mmMin').value);
-  const max  = parseFloat(document.getElementById('mmMax').value);
-  if(isNaN(min)||isNaN(max)||min<0||max<0){ toast('Valores inválidos','err'); return; }
-  if(max < min){ toast('Máximo deve ser maior que mínimo','err'); return; }
-  window.customMinMax[prod] = {min, max};
-  localStorage.setItem('customMinMax', JSON.stringify(window.customMinMax));
-  closeMinMax();
-  renderContagem();
-  renderCompras();
-  toast('Mínimo/Máximo atualizado ✓','ok');
-}
-
-function openEditName(produto){
-  const current = window.customNames[produto] || produto;
-  document.getElementById('editNameOrig').value  = produto;
-  document.getElementById('editNameInput').value = current;
-  document.getElementById('editNameModal').classList.add('open');
-  setTimeout(()=>document.getElementById('editNameInput').select(), 100);
-}
-
-function closeEditName(){
-  document.getElementById('editNameModal').classList.remove('open');
-}
-
-function saveEditName(){
-  const orig  = document.getElementById('editNameOrig').value;
-  const novo  = document.getElementById('editNameInput').value.trim();
-  if(!novo){ toast('Nome não pode ser vazio','err'); return; }
-  window.customNames[orig] = novo;
-  localStorage.setItem('customNames', JSON.stringify(window.customNames));
-  closeEditName();
-  renderContagem();
-  toast('Nome atualizado ✓','ok');
-}
-
-function getDisplayName(produto){
-  return window.customNames[produto] || produto;
-}
-
-function toggleShowHiddenCont(){
-  window._showHiddenCont = !window._showHiddenCont;
-  document.getElementById('cc-hidden')?.classList.toggle('on', window._showHiddenCont);
-  renderContagem();
-}
-
-function toggleShowHidden(){
-  window._showHidden = !window._showHidden;
-  renderCompras();
-}
-
-// ── Hidden items manager panel ──
-function showHiddenPanel(){
-  hiddenItems = window.hiddenItems;
-  const panel = document.getElementById('hiddenPanel');
-  if(!panel) return;
-  if(panel.style.display === 'block'){ panel.style.display='none'; return; }
-
-  if(!hiddenItems.length){
-    panel.innerHTML='<div style="padding:14px 16px;font-size:.82rem;color:var(--muted)">✅ Nenhum item oculto no momento.</div>';
-  } else {
-    panel.innerHTML = `
-      <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
-        <span style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700">🙈 Itens Ocultos (${hiddenItems.length})</span>
-        <div style="display:flex;gap:8px">
-          <button onclick="unhideAll()" style="background:var(--green);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">✅ Restaurar todos</button>
-          <button onclick="document.getElementById('hiddenPanel').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:7px;font-size:.75rem;cursor:pointer">Fechar</button>
-        </div>
-      </div>
-      ${hiddenItems.map(id=>`
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
-        <span style="font-size:.84rem;font-weight:500">${id}</span>
-        <button onclick="unhideItem('${id.replace(/\/g,'\\').replace(/'/g,"\'")}')"
-          style="background:var(--accent);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700;white-space:nowrap">
-          👁 Restaurar
-        </button>
-      </div>`).join('')}
-    `;
-  }
-  panel.style.display = 'block';
 }
 
 async function cycle(id){
@@ -1116,13 +1015,7 @@ function openNote(id,name){
   document.getElementById('mText').value=window.notes[id]||'';
   document.getElementById('modal').classList.add('open');
 }
-function closeModal(){
-  document.getElementById('modal').classList.remove('open');
-  modalId=null;
-  const extra=document.getElementById('modal-extra-content');
-  if(extra){extra.style.display='none';extra.innerHTML='';}
-  document.getElementById('mText').style.display='';
-}
+function closeModal(){ document.getElementById('modal').classList.remove('open');modalId=null; }
 async function saveNote(){
   if(!modalId) return;
   window.notes[modalId]=document.getElementById('mText').value.trim();
@@ -1164,8 +1057,8 @@ function contRowHTML(it){
       ${done?`<span class="tag t-prc">✓ ${c.qty} un</span><span class="tag t-obs">🕐 ${c.date}</span>`
              :`<span class="tag" style="border-color:#b8323230;color:var(--red)">Não contado</span>`}
       ${it.saldo!=null?`<span class="tag t-sld">Anterior: ${Math.round(it.saldo)}</span>`:''}
-      ${(getMin(it)!=null)?`<span class="tag">Mín: ${Math.round(getMin(it))}</span>`:'<span class="tag" style="border-color:#b8323230;color:var(--red)">Mín: —</span>'}
-      ${(getMax(it)!=null)?`<span class="tag">Máx: ${Math.round(getMax(it))}</span>`:'<span class="tag" style="border-color:#b8323230;color:var(--red)">Máx: —</span>'}
+      <span class="tag" style="${getMin(it)?'':'border-color:#b8323230;color:var(--red)'}">Mín: ${getMin(it)?Math.round(getMin(it)):'—'}</span>
+      <span class="tag" style="${getMax(it)?'':'border-color:#b8323230;color:var(--red)'}">Máx: ${getMax(it)?Math.round(getMax(it)):'—'}</span>
     </div>
   </div>
   <div class="iqty"><b style="color:${done?'var(--green)':'var(--muted)'}">${done?c.qty:'—'}</b><small>un</small></div>
@@ -1173,9 +1066,9 @@ function contRowHTML(it){
     <button class="abtn ab-buy ${done?'on':''}" onclick="openContModal('${_e(it.produto)}','${_e(it.subgrupo||'')}')">
       ${done?'✏️ Editar':'+ Contar'}
     </button>
-    <button class="abtn" style="border-color:#b8323230;color:var(--muted);font-size:.65rem" onclick="hideItem('${_e(it.produto)}')" title="Ocultar item">🙈</button>
-    <button class="abtn" style="font-size:.65rem" onclick="openEditName('${_e(it.produto)}')" title="Editar nome">✏️</button>
-    <button class="abtn" style="font-size:.65rem;border-color:#63a8f530;color:var(--blue)" onclick="openMinMax('${_e(it.produto)}')" title="Editar mínimo/máximo">📊</button>
+    <button class="abtn" style="font-size:.63rem;color:var(--muted)" onclick="hideItem('${_e(it.produto)}')" title="Ocultar">🙈</button>
+    <button class="abtn" style="font-size:.63rem" onclick="openEditName('${_e(it.produto)}')" title="Editar nome">✏️</button>
+    <button class="abtn" style="font-size:.63rem;border-color:#63a8f530;color:var(--blue)" onclick="openMinMax('${_e(it.produto)}')" title="Editar Mín/Máx">📊</button>
   </div>
 </div>`;
 }
@@ -1195,8 +1088,8 @@ function renderContagem(){
   const dateEl=document.getElementById('contDate');
   if(dateEl) dateEl.textContent=dateStr;
 
-  hiddenItems = window.hiddenItems;
-  const showHiddenCont = window._showHiddenCont||false;
+  hiddenItems=window.hiddenItems;
+  const showHiddenCont=window._showHiddenCont||false;
   const items=RAW.items.filter(it=>{
     const mq=!q||norm(it.produto).includes(q);
     const mc=!cat||it.subgrupo===cat;
@@ -1830,6 +1723,97 @@ function toast(msg,type=''){
   const el=document.getElementById('toast');
   el.textContent=msg;el.className='toast show '+(type||'');
   clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+// ═══ HIDDEN ITEMS ═══
+function hideItem(id){
+  hiddenItems=window.hiddenItems;
+  if(!hiddenItems.includes(id)){ hiddenItems.push(id); window.hiddenItems=hiddenItems; localStorage.setItem('hiddenItems',JSON.stringify(hiddenItems)); renderCompras(); renderContagem(); toast('"'+id.substring(0,20)+'" ocultado',''); }
+}
+function unhideItem(id){
+  window.hiddenItems=window.hiddenItems.filter(h=>h!==id); hiddenItems=window.hiddenItems; localStorage.setItem('hiddenItems',JSON.stringify(hiddenItems)); renderCompras(); renderContagem();
+}
+function unhideAll(){
+  window.hiddenItems=[];hiddenItems=window.hiddenItems;localStorage.setItem('hiddenItems',JSON.stringify([]));
+  document.getElementById('hiddenPanel').style.display='none';
+  const cp=document.getElementById('hiddenPanelCont');if(cp)cp.style.display='none';
+  renderCompras();renderContagem();toast('Todos restaurados ✓','ok');
+}
+function unhideByIdx(btn){
+  const idx=parseInt(btn.dataset.idx);hiddenItems=window.hiddenItems;
+  const id=hiddenItems[idx];if(id)unhideItem(id);
+  const panelId=btn.dataset.panel;renderHiddenPanel(panelId);
+  if(window.hiddenItems.length===0)document.getElementById(panelId).style.display='none';
+}
+function renderHiddenPanel(panelId){
+  hiddenItems=window.hiddenItems;
+  const panel=document.getElementById(panelId);if(!panel)return;
+  if(!hiddenItems.length){panel.innerHTML='<div style="padding:14px 16px;font-size:.82rem;color:var(--muted)">✅ Nenhum item oculto.</div>';return;}
+  const rows=hiddenItems.map((id,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-size:.84rem;font-weight:500">${id}</span>
+      <button data-idx="${i}" data-panel="${panelId}" onclick="unhideByIdx(this)"
+        style="background:var(--accent);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">👁 Restaurar</button>
+    </div>`).join('');
+  panel.innerHTML=`
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <span style="font-family:'Syne',sans-serif;font-size:.85rem;font-weight:700">🙈 Itens Ocultos (${hiddenItems.length})</span>
+      <div style="display:flex;gap:8px">
+        <button onclick="unhideAll()" style="background:var(--green);color:#111;border:none;padding:5px 14px;border-radius:7px;font-size:.75rem;cursor:pointer;font-weight:700">✅ Restaurar todos</button>
+        <button onclick="document.getElementById('${panelId}').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:5px 10px;border-radius:7px;font-size:.75rem;cursor:pointer">Fechar</button>
+      </div>
+    </div>${rows}`;
+}
+function showHiddenPanel(){
+  const p=document.getElementById('hiddenPanel');if(!p)return;
+  if(p.style.display==='block'){p.style.display='none';return;}
+  renderHiddenPanel('hiddenPanel');p.style.display='block';
+}
+function showHiddenPanelCont(){
+  const p=document.getElementById('hiddenPanelCont');if(!p)return;
+  if(p.style.display==='block'){p.style.display='none';return;}
+  renderHiddenPanel('hiddenPanelCont');p.style.display='block';
+}
+function toggleShowHidden(){ window._showHidden=!window._showHidden; renderCompras(); }
+function toggleShowHiddenCont(){ window._showHiddenCont=!window._showHiddenCont; document.getElementById('cc-hidden')?.classList.toggle('on',window._showHiddenCont); renderContagem(); }
+
+// ═══ EDIT NAME ═══
+function openEditName(produto){
+  const cur=window.customNames[produto]||produto;
+  document.getElementById('editNameOrig').value=produto;
+  document.getElementById('editNameInput').value=cur;
+  document.getElementById('editNameModal').classList.add('open');
+  setTimeout(()=>document.getElementById('editNameInput').select(),100);
+}
+function closeEditName(){ document.getElementById('editNameModal').classList.remove('open'); }
+function saveEditName(){
+  const orig=document.getElementById('editNameOrig').value;
+  const novo=document.getElementById('editNameInput').value.trim();
+  if(!novo){toast('Nome não pode ser vazio','err');return;}
+  window.customNames[orig]=novo;localStorage.setItem('customNames',JSON.stringify(window.customNames));
+  closeEditName();renderContagem();toast('Nome atualizado ✓','ok');
+}
+
+// ═══ EDIT MIN/MAX ═══
+function openMinMax(produto){
+  const item=RAW.items.find(i=>i.produto===produto);
+  const custom=window.customMinMax[produto]||{};
+  document.getElementById('mmProduto').value=produto;
+  document.getElementById('mmNome').textContent=getDisplayName(produto);
+  document.getElementById('mmMin').value=custom.min??item?.est_min??'';
+  document.getElementById('mmMax').value=custom.max??item?.est_max??'';
+  document.getElementById('editMinMaxModal').classList.add('open');
+  setTimeout(()=>document.getElementById('mmMin').focus(),100);
+}
+function closeMinMax(){ document.getElementById('editMinMaxModal').classList.remove('open'); }
+function saveMinMax(){
+  const prod=document.getElementById('mmProduto').value;
+  const min=parseFloat(document.getElementById('mmMin').value);
+  const max=parseFloat(document.getElementById('mmMax').value);
+  if(isNaN(min)||isNaN(max)||min<0||max<0){toast('Valores inválidos','err');return;}
+  if(max<min){toast('Máximo deve ser maior que mínimo','err');return;}
+  window.customMinMax[prod]={min,max};localStorage.setItem('customMinMax',JSON.stringify(window.customMinMax));
+  closeMinMax();renderContagem();renderCompras();toast('Mín/Máx atualizado ✓','ok');
 }
 
 // ═══ INIT ═══
