@@ -512,6 +512,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <span style="font-size:.75rem;color:var(--muted)" id="contDate"></span>
         <button class="btn-g" onclick="exportContagem()">⬇️ Exportar</button>
+        <button class="btn-g" style="border-color:#b8323240;color:var(--red)" onclick="novaContagem()">🔄 Nova Contagem</button>
         <button class="btn" onclick="saveContagem()">💾 Salvar Tudo</button>
       </div>
     </div>
@@ -1249,7 +1250,10 @@ function renderHistorico(){
   const histSubEl=document.getElementById('histSub');
   if(histSubEl) histSubEl.textContent=`${historicoContagens.length} registros`;
 
-  const entries=historicoContagens.filter(e=>(!q||norm(e.produto).includes(q)||norm(e.obs||'').includes(q))&&(!cat||e.subgrupo===cat));
+  const entries=historicoContagens.filter(e=>{
+    if(e.isSeparator) return true; // always show separators
+    return (!q||norm(e.produto).includes(q)||norm(e.obs||'').includes(q))&&(!cat||e.subgrupo===cat);
+  });
 
   if(!entries.length){
     container.innerHTML='<div class="empty"><div class="ei">🕒</div><h3>Nenhum histórico ainda</h3><p>As contagens feitas aparecem aqui automaticamente.</p></div>';
@@ -1272,7 +1276,16 @@ function renderHistorico(){
       const dc=diff===null?'var(--muted)':diff>0.5?'var(--blue)':diff<-0.5?'var(--red)':'var(--green)';
       const dt=diff===null?'':(diff>0?'+':'')+diff.toFixed(1);
       const icon=ICONS[e.subgrupo]||'📦';
-      return `<div class="irow" style="grid-template-columns:auto 1fr auto auto">
+      // Render separator differently
+    if(e.isSeparator) return `<div style="background:var(--s2);border-bottom:1px solid var(--border);
+      padding:8px 16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:.75rem;color:var(--muted)">🔄 ${e.date}</span>
+      <span style="flex:1;border-top:1px dashed var(--border)"></span>
+      <span style="font-size:.72rem;color:var(--accent);font-weight:600">NOVA CONTAGEM INICIADA</span>
+      <span style="flex:1;border-top:1px dashed var(--border)"></span>
+      <span style="font-size:.7rem;color:var(--muted)">${e.obs}</span>
+    </div>`;
+    return `<div class="irow" style="grid-template-columns:auto 1fr auto auto">
         <div style="font-size:1rem;padding:0 4px">${icon}</div>
         <div class="iinfo">
           <div class="iname">${e.produto}</div>
@@ -1892,6 +1905,65 @@ function saveMinMax(){
   if(max<min){toast('Máximo deve ser maior que mínimo','err');return;}
   window.customMinMax[prod]={min,max};localStorage.setItem('customMinMax',JSON.stringify(window.customMinMax));
   closeMinMax();renderContagem();renderCompras();toast('Mín/Máx atualizado ✓','ok');
+}
+
+// ═══ NOVA CONTAGEM ═══
+async function novaContagem(){
+  const total = Object.keys(window.contagens).length;
+  if(total === 0){ toast('Nenhuma contagem para arquivar',''); return; }
+
+  if(!confirm(`Iniciar nova contagem?\n\nIsso vai:\n• Arquivar as ${total} contagens atuais no histórico\n• Zerar o inventário para uma nova rodada\n\nAs contagens anteriores ficam salvas no Histórico.`)) return;
+
+  // Archive current contagens to historico before clearing
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})
+                + ' ' + now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+
+  // Add a separator entry in historico to mark the start of a new session
+  const separator = {
+    produto: '── NOVA CONTAGEM ──',
+    subgrupo: '',
+    qty: null,
+    anterior: null,
+    obs: `Inventário anterior: ${total} itens contados`,
+    date: dateStr,
+    ts: now.getTime(),
+    isSeparator: true,
+  };
+
+  // Add all current contagens as history entries (if not already there)
+  const existing_ts = new Set(window.historicoContagens.map(h=>h.ts));
+  const newEntries = [];
+  Object.entries(window.contagens).forEach(([produto, c])=>{
+    // Check if this exact entry is already in history
+    const alreadyIn = window.historicoContagens.some(h=>
+      h.produto === produto && h.date === c.date && h.qty === c.qty
+    );
+    if(!alreadyIn){
+      const item = RAW.items.find(i=>i.produto===produto);
+      newEntries.push({
+        produto, subgrupo: item?.subgrupo||'',
+        qty: c.qty, anterior: c.anterior||null,
+        obs: c.obs||'', date: c.date, ts: c.ts||(now.getTime()),
+      });
+    }
+  });
+
+  // Prepend separator + new entries to history
+  window.historicoContagens = [separator, ...newEntries, ...window.historicoContagens];
+  if(window.historicoContagens.length > 1000) window.historicoContagens = window.historicoContagens.slice(0,1000);
+
+  // Clear current contagens
+  window.contagens = {};
+  contagens = window.contagens;
+
+  // Save both to Firebase
+  await fbSave('contagens', {});
+  await fbSave('historico_contagens', {entries: window.historicoContagens});
+
+  renderContagem();
+  renderCompras();
+  toast(`Nova contagem iniciada! ${total} registros arquivados no Histórico ✓`, 'ok');
 }
 
 // ═══ INIT ═══
