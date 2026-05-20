@@ -923,33 +923,29 @@ function getBestPrice(produto){
 }
 
 // ═══ FARDOS / CAIXAS ═══
-const FARDOS = {
-  'AGUA MAMBA SEM GAS':        {un: 12, label: 'fardo'},
-  'AGUA  MAMBA SEM GAS':       {un: 12, label: 'fardo'},
-  'AGUA MAMBA COM GAS':        {un: 12, label: 'fardo'},
-  'HEINEKEN LONGNECK':         {un: 24, label: 'fardo'},
-  'HEINEKEN ZERO LONGNECK':    {un: 24, label: 'fardo'},
-  'HEINEKEN LONG NECK':        {un: 24, label: 'fardo'},
-  'HEINEKEN ZERO LONG NECK':   {un: 24, label: 'fardo'},
-  'AMSTEL LONG NECK':          {un: 12, label: 'fardo'},
-  'AMSTEL LONGNECK':           {un: 12, label: 'fardo'},
-  'AMSTEL ULTRA':              {un: 12, label: 'fardo'},
-  'HEINEKEN 600ML':            {un: 24, label: 'caixa'},
-  'AMSTEL 600ML':              {un: 24, label: 'caixa'},
-  'CERVEJA Baden BADEN CRISTAL':     {un: 6, label: 'fardo'},
-  'CERVEJA BADEN BADEN PEACH':       {un: 6, label: 'fardo'},
-  'CERVEJA BADEN AMERICAN IPA':      {un: 6, label: 'fardo'},
-  'CERVEJA BADEN BADEN WEISS':       {un: 6, label: 'fardo'},
-  'CERVEJA BADEN BADEN EXTRA LAGER': {un: 6, label: 'fardo'},
-};
+const FARDOS = [
+  // Águas Mamba
+  {match: ['AGUA  MAMBA SEM GAS', 'AGUA MAMBA SEM GAS'],  un: 12, label: 'fardo'},
+  {match: ['AGUA MAMBA COM GAS'],                          un: 12, label: 'fardo'},
+  // Heineken
+  {match: ['HEINEKEN LONGNECK', 'HEINEKEN LONG NECK'],     un: 24, label: 'fardo'},
+  {match: ['HEINEKEN ZERO LONGNECK', 'HEINEKEN ZERO LONG NECK'], un: 24, label: 'fardo'},
+  {match: ['HEINEKEN 600ML'],                              un: 24, label: 'caixa'},
+  // Amstel
+  {match: ['AMSTEL LONG NECK', 'AMSTEL LONGNECK'],         un: 12, label: 'fardo'},
+  {match: ['AMSTEL ULTRA'],                                un: 12, label: 'fardo'},
+  {match: ['AMSTEL 600ML'],                                un: 24, label: 'caixa'},
+  // Baden Baden (qualquer variação)
+  {match: ['BADEN'],                                       un:  6, label: 'fardo'},
+];
 
 function getFardo(produto){
-  // exact match first
-  if(FARDOS[produto]) return FARDOS[produto];
-  // partial match
-  const n = produto.toUpperCase();
-  for(const [k, v] of Object.entries(FARDOS)){
-    if(n.includes(k.toUpperCase()) || k.toUpperCase().includes(n)) return v;
+  const n = produto.toUpperCase().trim();
+  for(const f of FARDOS){
+    // check exact matches first
+    if(f.match.some(m => n === m.toUpperCase().trim())) return f;
+    // then keyword match (for BADEN)
+    if(f.match.length === 1 && n.includes(f.match[0].toUpperCase())) return f;
   }
   return null;
 }
