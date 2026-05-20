@@ -1953,17 +1953,19 @@ async function novaContagem(){
   window.historicoContagens = [separator, ...newEntries, ...window.historicoContagens];
   if(window.historicoContagens.length > 1000) window.historicoContagens = window.historicoContagens.slice(0,1000);
 
-  // Clear current contagens
+  // Clear current contagens AND statuses (comprado/recebido)
   window.contagens = {};
   contagens = window.contagens;
+  window.statuses = {};
 
-  // Save both to Firebase
+  // Save to Firebase
   await fbSave('contagens', {});
+  await fbSave('statuses', {});
   await fbSave('historico_contagens', {entries: window.historicoContagens});
 
   renderContagem();
   renderCompras();
-  toast(`Nova contagem iniciada! ${total} registros arquivados no Histórico ✓`, 'ok');
+  toast(`Nova contagem iniciada! ${total} registros arquivados. Status de compras zerados ✓`, 'ok');
 }
 
 // ═══ INIT ═══
