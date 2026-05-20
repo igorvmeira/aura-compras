@@ -922,6 +922,52 @@ function getBestPrice(produto){
   return prices.reduce((best, cur) => cur.price < best.price ? cur : best);
 }
 
+// ═══ FARDOS / CAIXAS ═══
+const FARDOS = {
+  'AGUA MAMBA SEM GAS':        {un: 12, label: 'fardo'},
+  'AGUA  MAMBA SEM GAS':       {un: 12, label: 'fardo'},
+  'AGUA MAMBA COM GAS':        {un: 12, label: 'fardo'},
+  'HEINEKEN LONGNECK':         {un: 24, label: 'fardo'},
+  'HEINEKEN ZERO LONGNECK':    {un: 24, label: 'fardo'},
+  'HEINEKEN LONG NECK':        {un: 24, label: 'fardo'},
+  'HEINEKEN ZERO LONG NECK':   {un: 24, label: 'fardo'},
+  'AMSTEL LONG NECK':          {un: 12, label: 'fardo'},
+  'AMSTEL LONGNECK':           {un: 12, label: 'fardo'},
+  'AMSTEL ULTRA':              {un: 12, label: 'fardo'},
+  'HEINEKEN 600ML':            {un: 24, label: 'caixa'},
+  'AMSTEL 600ML':              {un: 24, label: 'caixa'},
+  'CERVEJA Baden BADEN CRISTAL':     {un: 6, label: 'fardo'},
+  'CERVEJA BADEN BADEN PEACH':       {un: 6, label: 'fardo'},
+  'CERVEJA BADEN AMERICAN IPA':      {un: 6, label: 'fardo'},
+  'CERVEJA BADEN BADEN WEISS':       {un: 6, label: 'fardo'},
+  'CERVEJA BADEN BADEN EXTRA LAGER': {un: 6, label: 'fardo'},
+};
+
+function getFardo(produto){
+  // exact match first
+  if(FARDOS[produto]) return FARDOS[produto];
+  // partial match
+  const n = produto.toUpperCase();
+  for(const [k, v] of Object.entries(FARDOS)){
+    if(n.includes(k.toUpperCase()) || k.toUpperCase().includes(n)) return v;
+  }
+  return null;
+}
+
+function formatQtd(qtd, produto){
+  if(!qtd || qtd <= 0) return {text: '—', sub: ''};
+  const fardo = getFardo(produto);
+  if(!fardo){
+    return {text: String(Math.ceil(qtd)), sub: 'unid.'};
+  }
+  const fardos = Math.ceil(qtd / fardo.un);
+  const unids  = Math.ceil(qtd);
+  return {
+    text: String(fardos),
+    sub:  `${fardo.label}${fardos>1?'s':''} de ${fardo.un} (${unids} un)`
+  };
+}
+
 function getMin(item){ const c=window.customMinMax[item.produto]; return c?c.min:(item.est_min??null); }
 function getMax(item){ const c=window.customMinMax[item.produto]; return c?c.max:(item.est_max??null); }
 function getDisplayName(p){ return window.customNames[p]||p; }
