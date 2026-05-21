@@ -565,6 +565,28 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
 <!-- ═══════════ ACURÁCIA ═══════════ -->
 <div class="page" id="page-acuracia">
 
+  <!-- IMPORT PDV -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);
+    padding:14px 18px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <div style="font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700">
+        📤 Importar Relatório de Inventário (PDV)
+      </div>
+      <div id="pdvPeriodInfo" style="font-size:.73rem;color:var(--muted)"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <label style="background:var(--accent);color:#111;padding:8px 16px;border-radius:8px;
+        font-family:'Syne',sans-serif;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap">
+        📊 Selecionar Excel
+        <input type="file" id="filePDV" accept=".xlsx,.xls,.csv" style="display:none">
+      </label>
+      <span style="font-size:.75rem;color:var(--muted)">
+        Formato: Código | Produto | Unidade | Un | Valor | <b>Inventário</b> | Valor | <b>Estoque</b> | Valor | <b>Diferença</b>
+      </span>
+      <button class="btn-g" id="btnClearPDV" onclick="clearPDV()" style="display:none">✕ Limpar</button>
+    </div>
+  </div>
+
   <!-- HEADER CARDS -->
   <div class="stats" style="margin-bottom:16px">
     <div class="stat" style="border-color:#a78bfa55;color:var(--purple)">🎯 Acurácia Geral: <b id="acGeral">—</b></div>
@@ -1726,16 +1748,47 @@ function setAcF(f){
 }
 
 function calcAcuracia(){
-  contagens=window.contagens;
+  contagens = window.contagens;
+  const pdv = window.pdvData || [];
+  const usePDV = pdv.length > 0;
+
   return RAW.items.map(it=>{
-    const cont=contagens[it.produto];
-    const contado=cont?cont.qty:null;
-    const registrado=it.saldo??null;
-    const vendaItem=vendasImportadas.find(v=>sameProduct(v.nome,it.produto));
-    const vendido=vendaItem?vendaItem.qtd:null;
-    const teorico=(registrado!==null&&vendido!==null)?Math.max(0,registrado-vendido):registrado;
-    const diff=(contado!==null&&teorico!==null)?contado-teorico:null;
-    let status='sem';
+    const cont      = contagens[it.produto];
+    const contado   = cont ? cont.qty : null;
+    const registrado = it.saldo ?? null;
+
+    // If PDV data available: use it as the source of truth
+    if(usePDV){
+      const pdvItem = pdv.find(p=>sameProduct(p.nome, it.produto));
+      if(pdvItem){
+        const inventarioPDV  = pdvItem.inventario;    // contagem física do PDV
+        const estoqueSistema = pdvItem.estoque_sistema; // estoque no sistema PDV
+        const diferenca      = pdvItem.diferenca;     // inventarioPDV - estoqueSistema
+        // Contado = inventário físico do PDV (ou nossa contagem manual se existir)
+        const contadoFinal = contado ?? inventarioPDV;
+        // Teórico = estoque no sistema PDV
+        const teorico = estoqueSistema;
+        const diff = (contadoFinal!==null && teorico!==null) ? contadoFinal - teorico : diferenca;
+        let status = 'sem';
+        if(diff !== null){
+          const absDiff = Math.abs(diff);
+          const pctDiff = teorico && teorico>0 ? (absDiff/Math.abs(teorico))*100 : 100;
+          if(pctDiff<=5||absDiff<=0.5) status='ok';
+          else if(diff<0) status='quebra';
+          else status='sobra';
+        }
+        return{...it, registrado: estoqueSistema, contado: contadoFinal,
+               vendido: null, teorico: estoqueSistema, diff, status,
+               fromPDV: true, inventarioPDV};
+      }
+    }
+
+    // Fallback: use vendas importadas
+    const vendaItem = vendasImportadas.find(v=>sameProduct(v.nome,it.produto));
+    const vendido   = vendaItem?vendaItem.qtd:null;
+    const teorico   = (registrado!==null&&vendido!==null)?Math.max(0,registrado-vendido):registrado;
+    const diff      = (contado!==null&&teorico!==null)?contado-teorico:null;
+    let status = 'sem';
     if(contado!==null&&teorico!==null){
       const absDiff=Math.abs(diff),pctDiff=teorico>0?(absDiff/teorico)*100:absDiff*100;
       if(pctDiff<=5||absDiff<=0.5)status='ok';
@@ -1812,7 +1865,8 @@ function renderAcuracia(){
       <td style="color:var(--accent)">${it.registrado!=null?Math.round(it.registrado):'—'}</td>
       <td style="color:${it.contado!=null?'var(--text)':'var(--muted)'};font-weight:${it.contado!=null?'600':'400'}">
         ${it.contado!=null?it.contado:'—'}
-        ${it.contado!=null&&contagens[it.produto]?`<br><small style="color:var(--muted);font-weight:400">${contagens[it.produto].date}</small>`:''}
+        ${it.fromPDV?`<br><small style="color:var(--blue);font-weight:400">📊 PDV</small>`
+          :it.contado!=null&&contagens[it.produto]?`<br><small style="color:var(--muted);font-weight:400">${contagens[it.produto].date}</small>`:''}
       </td>
       <td style="color:var(--orange)">${it.vendido!=null?it.vendido:'—'}</td>
       <td style="color:var(--text)">${it.teorico!=null?it.teorico.toFixed(1):'—'}</td>
@@ -2008,6 +2062,67 @@ async function novaContagem(){
   renderContagem();
   renderCompras();
   toast(`Nova contagem iniciada! ${total} registros arquivados. Status de compras zerados ✓`, 'ok');
+}
+
+// ═══ IMPORTAR PDV ═══
+window.pdvData = [];  // [{nome, inventario, estoque_sistema, diferenca, preco}]
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const filePDV = document.getElementById('filePDV');
+  if(filePDV) filePDV.addEventListener('change', function(){
+    const file = this.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        let wb;
+        if(file.name.endsWith('.csv')) wb=XLSX.read(ev.target.result,{type:'string'});
+        else wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+
+        const result = [];
+        for(const row of rows){
+          // Skip header rows and subgrupo rows
+          const col1 = String(row[1]||'').trim();
+          if(!col1 || col1==='Produto' || col1.startsWith('Subgrupo') || col1==='Tipo Un.') continue;
+          // Check if col0 is a number (product code)
+          const codigo = row[0];
+          if(typeof codigo !== 'number' && isNaN(parseInt(codigo))) continue;
+
+          const nome        = col1.trim();
+          const inventario  = typeof row[5]==='number' ? row[5] : null;
+          const estoque_sis = typeof row[7]==='number' ? row[7] : null;
+          const diferenca   = typeof row[9]==='number' ? row[9] : null;
+          const preco       = typeof row[4]==='number' ? row[4] : null;
+
+          if(nome && inventario !== null){
+            result.push({nome, inventario, estoque_sistema: estoque_sis, diferenca, preco});
+          }
+        }
+
+        if(!result.length){ toast('Nenhum dado encontrado no arquivo','err'); return; }
+        window.pdvData = result;
+        localStorage.setItem('pdvData', JSON.stringify({items:result, date:new Date().toISOString()}));
+        document.getElementById('pdvPeriodInfo').textContent =
+          `✅ ${result.length} produtos importados em ${new Date().toLocaleDateString('pt-BR')}`;
+        document.getElementById('btnClearPDV').style.display='';
+        renderAcuracia();
+        toast(`${result.length} produtos importados ✓`, 'ok');
+      }catch(e){ toast('Erro ao ler arquivo: '+e.message,'err'); console.error(e); }
+    };
+    if(file.name.endsWith('.csv')) reader.readAsText(file,'ISO-8859-1');
+    else reader.readAsArrayBuffer(file);
+    this.value='';
+  });
+});
+
+function clearPDV(){
+  window.pdvData=[];
+  localStorage.removeItem('pdvData');
+  document.getElementById('pdvPeriodInfo').textContent='';
+  document.getElementById('btnClearPDV').style.display='none';
+  renderAcuracia();
+  toast('Dados PDV removidos','');
 }
 
 // ═══ INIT ═══
