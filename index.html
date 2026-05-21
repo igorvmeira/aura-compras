@@ -2078,29 +2078,67 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if(file.name.endsWith('.csv')) wb=XLSX.read(ev.target.result,{type:'string'});
         else wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+        // Use sheet_to_json without header to get raw array
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:true});
 
-        const result = [];
-        for(const row of rows){
-          // Skip header rows and subgrupo rows
-          const col1 = String(row[1]||'').trim();
-          if(!col1 || col1==='Produto' || col1.startsWith('Subgrupo') || col1==='Tipo Un.') continue;
-          // Check if col0 is a number (product code)
-          const codigo = row[0];
-          if(typeof codigo !== 'number' && isNaN(parseInt(codigo))) continue;
+        // Find column indices dynamically by scanning header rows
+        let colNome=-1, colInv=-1, colEst=-1, colDif=-1, colPreco=-1, colCod=-1;
 
-          const nome        = col1.trim();
-          const inventario  = typeof row[5]==='number' ? row[5] : null;
-          const estoque_sis = typeof row[7]==='number' ? row[7] : null;
-          const diferenca   = typeof row[9]==='number' ? row[9] : null;
-          const preco       = typeof row[4]==='number' ? row[4] : null;
-
-          if(nome && inventario !== null){
-            result.push({nome, inventario, estoque_sistema: estoque_sis, diferenca, preco});
+        for(let r=0; r<Math.min(5,rows.length); r++){
+          const row = rows[r];
+          for(let c=0; c<row.length; c++){
+            const v = String(row[c]||'').trim().toLowerCase();
+            if(v==='produto' || v==='nome')                               colNome=c;
+            if(v==='código' || v==='codigo' || v==='cód' || v==='cod')    colCod=c;
+            if(v==='inventário' || v==='inventario')                      colInv=c;
+            if(v==='estoque' || v==='atual')                              { if(colEst<0) colEst=c; }
+            if(v==='diferença' || v==='diferenca')                        colDif=c;
+            if(v==='valor un' || v==='preço' || v==='preco')              colPreco=c;
           }
         }
 
-        if(!result.length){ toast('Nenhum dado encontrado no arquivo','err'); return; }
+        // Fallback to known column positions for this specific report format
+        // A=0(Cod) B=1(Nome) C=2(Tipo) D=3(Un) E=4(PrecoUn) F=5(Inv) G=6(ValInv) H=7(Est) I=8(ValEst) J=9(Dif) K=10(ValDif)
+        if(colNome<0)  colNome=1;
+        if(colCod<0)   colCod=0;
+        if(colInv<0)   colInv=5;
+        if(colEst<0)   colEst=7;
+        if(colDif<0)   colDif=9;
+        if(colPreco<0) colPreco=4;
+
+        const result = [];
+        for(const row of rows){
+          if(!row || row.length < 4) continue;
+
+          // Skip header/subgrupo rows
+          const rawCod  = row[colCod];
+          const rawNome = String(row[colNome]||'').trim();
+
+          if(!rawNome) continue;
+          if(rawNome==='Produto' || rawNome.startsWith('Subgrupo') ||
+             rawNome==='Tipo Un.' || rawNome==='Un') continue;
+
+          // Must have numeric code
+          const codNum = typeof rawCod==='number' ? rawCod : parseInt(rawCod);
+          if(isNaN(codNum)) continue;
+
+          const inventario  = typeof row[colInv]==='number'  ? row[colInv]  : parseFloat(row[colInv]);
+          const estoque_sis = typeof row[colEst]==='number'  ? row[colEst]  : parseFloat(row[colEst]);
+          const diferenca   = typeof row[colDif]==='number'  ? row[colDif]  : parseFloat(row[colDif]);
+          const preco       = typeof row[colPreco]==='number'? row[colPreco]: parseFloat(row[colPreco]);
+
+          if(rawNome && !isNaN(inventario)){
+            result.push({
+              nome: rawNome,
+              inventario,
+              estoque_sistema: isNaN(estoque_sis)?null:estoque_sis,
+              diferenca:       isNaN(diferenca)?null:diferenca,
+              preco:           isNaN(preco)?null:preco,
+            });
+          }
+        }
+
+        if(!result.length){ toast('Nenhum dado encontrado. Verifique se o arquivo está no formato correto.','err'); return; }
         window.pdvData = result;
         localStorage.setItem('pdvData', JSON.stringify({items:result, date:new Date().toISOString()}));
         document.getElementById('pdvPeriodInfo').textContent =
