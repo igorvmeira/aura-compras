@@ -1600,12 +1600,22 @@ document.getElementById('fileVendas').addEventListener('change',function(){
       if(file.name.endsWith('.csv'))wb=XLSX.read(ev.target.result,{type:'string'});
       else wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:true});
       if(!data||data.length<2){toast('Planilha vazia','err');return;}
+
+      // Find header row: first row with 3+ non-empty cells containing text
       let hi=0;
-      for(let r=0;r<Math.min(6,data.length);r++){if(data[r].filter(c=>String(c).trim()).length>2){hi=r;break;}}
-      vRawHeaders=data[hi].map((h,i)=>{return{label:String(h||'Col '+(i+1)),idx:i}});
-      vRawRows=data.slice(hi+1).filter(r=>r.some(c=>c!=''));
+      for(let r=0;r<Math.min(8,data.length);r++){
+        const filled=data[r].filter(c=>c!=null&&String(c).trim()!='');
+        const hasText=filled.some(c=>isNaN(c)&&String(c).trim().length>1);
+        if(filled.length>=2&&hasText){hi=r;break;}
+      }
+
+      vRawHeaders=data[hi].map((h,i)=>({label:String(h||'Col '+(i+1)),idx:i}));
+      // Include ALL rows after header that have at least one non-null value
+      vRawRows=data.slice(hi+1).filter(r=>r&&r.some(c=>c!=null&&String(c).trim()!=''));
+
+      if(!vRawRows.length){toast('Planilha vazia — nenhuma linha de dados encontrada','err');return;}
       document.getElementById('vzH').textContent=file.name+' · '+vRawRows.length+' linhas';
       showVMapping();
     }catch(err){toast('Erro: '+err.message,'err');}
@@ -1622,10 +1632,17 @@ function showVMapping(){
     const first=id==='vColValor'?'<option value="">— não usar —</option>':'';
     sel.innerHTML=first+vRawHeaders.map(h=>`<option value="${h.idx}">${h.label}</option>`).join('');
   });
-  const autoMap={vColNome:['produto','item','nome','descri','bebida'],vColQtd:['qtd','quantidade','vendido','vendas','qty'],vColValor:['valor','total','receita','revenue']};
+  const autoMap={
+    vColNome: ['produto','item','nome','descri','bebida'],
+    vColQtd:  ['qtd','quantidade','vendido','vendas','qty','inventário','inventario'],
+    vColValor:['valor total','receita','revenue','faturamento'],
+  };
   for(const [id,keys] of Object.entries(autoMap)){
     const sel=document.getElementById(id);
-    for(const h of vRawHeaders){if(keys.some(k=>norm(h.label).includes(k))){sel.value=String(h.idx);break;}}
+    for(const h of vRawHeaders){
+      const lbl=norm(h.label);
+      if(keys.some(k=>lbl.includes(norm(k)))){sel.value=String(h.idx);break;}
+    }
   }
 }
 
@@ -1636,10 +1653,20 @@ function importVendas(){
   if(isNaN(iNome)||isNaN(iQtd)){toast('Selecione Produto e Quantidade','err');return;}
   const result=[];
   vRawRows.forEach(row=>{
-    const nome=String(row[iNome]||'').trim();
-    const qtd=parseFloat(String(row[iQtd]||'').replace(',','.'));
-    if(!nome||isNaN(qtd)) return;
-    const valor=iValor!==''?parseFloat(String(row[parseInt(iValor)]||'').replace(',','.')):null;
+    const rawNome=row[iNome];
+    const nome=String(rawNome||'').trim();
+    if(!nome) return;
+    // Skip subgrupo lines and pure-number names
+    if(nome.toLowerCase().startsWith('subgrupo')) return;
+    if(!isNaN(nome)&&nome.length>0) return; // skip if it's just a number
+
+    const rawQtd=row[iQtd];
+    const qtd=typeof rawQtd==='number'?rawQtd:parseFloat(String(rawQtd||'').replace(',','.'));
+    if(isNaN(qtd)||qtd===null) return;
+
+    const iValorInt=iValor!==''?parseInt(iValor):-1;
+    const rawVal=iValorInt>=0?row[iValorInt]:null;
+    const valor=rawVal!=null?(typeof rawVal==='number'?rawVal:parseFloat(String(rawVal).replace(',','.'))):null;
     result.push({nome,qtd,valor:isNaN(valor)?null:valor});
   });
   if(!result.length){toast('Nenhum item válido','err');return;}
