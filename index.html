@@ -46,6 +46,17 @@ signInAnonymously(auth).then(() => {
   onSnapshot(doc(db,'gestao','contagens'), s => {
     if(s.exists()){ window.contagens = s.data(); contagens = window.contagens; window._rcont && window._rcont(); }
   });
+  // Cozinha listeners
+  onSnapshot(doc(db,'gestao','cz_contagens'), s => {
+    if(s.exists()){ window.czContagens=s.data(); window._czrco&&window._czrco(); window._czrc&&window._czrc(); }
+  });
+  onSnapshot(doc(db,'gestao','cz_statuses'), s => {
+    if(s.exists()){ window.czStatuses=s.data(); window._czrc&&window._czrc(); }
+  });
+  onSnapshot(doc(db,'gestao','cz_historico'), s => {
+    if(s.exists()&&s.data().entries){ window.czHistorico=s.data().entries; }
+  });
+
   onSnapshot(doc(db,'gestao','historico_contagens'), s => {
     if(s.exists() && s.data().entries){
       window.historicoContagens = s.data().entries;
@@ -297,7 +308,8 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <span class="sync-dot" id="syncDot" title="Firebase ao vivo"></span>
   </div>
   <div class="tabs">
-    <button class="tab on" onclick="goPage('compras',this)">🛒 Compras</button>
+    <button class="tab on" onclick="goPage('compras',this)">🛒 Bar</button>
+    <button class="tab" onclick="goPage('cozinha',this)">🍽️ Cozinha</button>
     <button class="tab" onclick="goPage('cotacoes',this)">📊 Cotações</button>
     <button class="tab" onclick="goPage('vendas',this)">📈 Vendas</button>
     <button class="tab" onclick="goPage('estoque',this)">📦 Estoque</button>
@@ -332,6 +344,144 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
 
   <div id="hiddenPanel" style="display:none;background:var(--s1);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px;overflow:hidden;max-height:360px;overflow-y:auto"></div>
   <div id="clist"></div>
+</div>
+
+<!-- ═══════════ COZINHA ═══════════ -->
+<div class="page" id="page-cozinha">
+
+  <!-- SUB-TABS -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+    <button class="fb on" id="cz-compras"  onclick="setCzTab('compras')">🛒 Lista de Compras</button>
+    <button class="fb"    id="cz-contagem" onclick="setCzTab('contagem')">🔢 Contagem</button>
+    <button class="fb"    id="cz-historico" onclick="setCzTab('historico')">🕒 Histórico</button>
+  </div>
+
+  <!-- COMPRAS -->
+  <div id="czSub-compras">
+    <div class="stats">
+      <div class="stat sy">📦 Total: <b id="czST">0</b></div>
+      <div class="stat sr">⏳ Pendentes: <b id="czSP">0</b></div>
+      <div class="stat sb">🛒 Comprados: <b id="czSB">0</b></div>
+      <div class="stat sg">✅ Recebidos: <b id="czSR">0</b></div>
+    </div>
+    <div class="prog" style="margin-bottom:14px">
+      <div class="prog-track"><div class="prog-fill" id="czPFill" style="width:0%"></div></div>
+      <div class="prog-pct" id="czPPct">0%</div>
+    </div>
+    <div class="frow">
+      <input class="fi" type="text" id="czSrch" placeholder="🔍 Buscar item..." oninput="renderCozinhaCompras()">
+      <button class="fb on" id="czfa"  onclick="setCzF('all')">Todos</button>
+      <button class="fb"    id="czfp"  onclick="setCzF('pending')">Pendentes</button>
+      <button class="fb"    id="czfb2" onclick="setCzF('bought')">Comprados</button>
+      <button class="fb"    id="czfr"  onclick="setCzF('received')">Recebidos</button>
+      <button class="fb danger" onclick="resetCozinha()">🗑 Limpar</button>
+      <button class="fb" onclick="novaCozinhaContagem()">🔄 Nova Contagem</button>
+    </div>
+    <div id="czList"></div>
+  </div>
+
+  <!-- CONTAGEM -->
+  <div id="czSub-contagem" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="stitle" style="margin:0">🔢 Contagem Cozinha <small id="czContSub"></small></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="font-size:.73rem;color:var(--muted)" id="czContDate"></span>
+        <button class="btn-g" onclick="exportCozinhaContagem()">⬇️ Exportar</button>
+        <button class="btn" onclick="saveCozinhaContagem()">💾 Salvar Tudo</button>
+      </div>
+    </div>
+    <div class="frow">
+      <input class="fi" type="text" id="czContSrch" placeholder="🔍 Buscar item..." oninput="renderCozinhaContagem()">
+      <select class="fi" id="czContCat" onchange="renderCozinhaContagem()" style="flex:none">
+        <option value="">Todos os grupos</option>
+        <option value="Proteína">🥩 Proteína</option>
+        <option value="Insumo">🧂 Insumo</option>
+        <option value="Pizza">🍕 Pizza</option>
+      </select>
+      <button class="fb on" id="czcc-all"     onclick="setCzCC('all')">Todos</button>
+      <button class="fb"    id="czcc-pending" onclick="setCzCC('pending')">Não contados</button>
+      <button class="fb"    id="czcc-done"    onclick="setCzCC('done')">Contados</button>
+    </div>
+    <div class="prog" style="margin-bottom:14px">
+      <div class="prog-track"><div class="prog-fill" id="czContProg" style="width:0%"></div></div>
+      <div class="prog-pct" id="czContPct">0%</div>
+      <span style="font-size:.73rem;color:var(--muted);margin-left:6px" id="czContCount"></span>
+    </div>
+    <div id="czContGrid"></div>
+  </div>
+
+  <!-- HISTÓRICO -->
+  <div id="czSub-historico" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div class="stitle" style="margin:0">🕒 Histórico Cozinha <small id="czHistSub"></small></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-g" onclick="exportCozinhaHistorico()">⬇️ Exportar</button>
+        <button class="btn-g" style="border-color:#b8323240;color:var(--red)" onclick="clearCozinhaHistorico()">🗑 Limpar</button>
+      </div>
+    </div>
+    <div class="frow">
+      <input class="fi" type="text" id="czHistSrch" placeholder="🔍 Buscar item..." oninput="renderCozinhaHistorico()">
+      <select class="fi" id="czHistCat" onchange="renderCozinhaHistorico()" style="flex:none">
+        <option value="">Todos os grupos</option>
+        <option value="Proteína">🥩 Proteína</option>
+        <option value="Insumo">🧂 Insumo</option>
+        <option value="Pizza">🍕 Pizza</option>
+      </select>
+    </div>
+    <div id="czHistContainer"></div>
+  </div>
+</div>
+
+<!-- COZINHA CONTAGEM MODAL -->
+<div class="modal-bg" id="czContModal">
+  <div class="modal" style="max-width:420px">
+    <h4 id="czModal-title" style="font-size:.85rem;margin-bottom:4px"></h4>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">
+      <span id="czModal-grupo"></span> · <span id="czModal-un"></span> · <span id="czModal-ant"></span>
+    </div>
+    <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Quantidade contada *</label>
+    <input id="czModal-qty" type="number" min="0" step="0.1"
+      placeholder="Ex: 3.5"
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+      padding:10px 12px;border-radius:8px;font-size:1.1rem;font-family:'Syne',sans-serif;
+      font-weight:700;margin-bottom:10px"
+      onkeydown="if(event.key==='Enter') saveCzContItem()">
+    <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px">Observação (opcional)</label>
+    <input id="czModal-obs" type="text" placeholder="Ex: pacote aberto, vencendo em breve..."
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+      padding:8px 12px;border-radius:8px;font-size:.84rem;margin-bottom:12px">
+    <div class="modal-btns">
+      <button class="mbtn-c" onclick="closeCzModal()">Cancelar</button>
+      <button class="btn" onclick="saveCzContItem()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- COZINHA EDIT MIN/MAX MODAL -->
+<div class="modal-bg" id="czMinMaxModal">
+  <div class="modal" style="max-width:400px">
+    <h4>📊 Editar Mínimo e Máximo</h4>
+    <div id="czMMNome" style="font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:14px"></div>
+    <input type="hidden" id="czMMProduto">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">⚠️ Mínimo</label>
+        <input id="czMMMin" type="number" min="0" step="0.5"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+          padding:9px 12px;border-radius:8px;font-size:1rem;font-family:'Syne',sans-serif;font-weight:700">
+      </div>
+      <div>
+        <label style="font-size:.72rem;color:var(--muted);display:block;margin-bottom:4px">✅ Máximo</label>
+        <input id="czMMMax" type="number" min="0" step="0.5"
+          style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+          padding:9px 12px;border-radius:8px;font-size:1rem;font-family:'Syne',sans-serif;font-weight:700">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn-c" onclick="closeCzMM()">Cancelar</button>
+      <button class="btn" onclick="saveCzMM()">Salvar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════ COTAÇÕES ═══════════ -->
@@ -908,6 +1058,7 @@ function goPage(id,el){
   if(id==='vendas')   renderVendas();
   if(id==='estoque')  { setETab('lista'); renderEstoque(); renderContagem(); }
   if(id==='acuracia') renderAcuracia();
+  if(id==='cozinha')  { setCzTab('compras'); }
 }
 
 // ═══ COMPRAS ═══
@@ -1142,6 +1293,8 @@ document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.cu
 document.getElementById('editNameModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeEditName();});
 document.getElementById('editMinMaxModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMinMax();});
 document.getElementById('contModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeContModal();});
+document.getElementById('czContModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCzModal();});
+document.getElementById('czMinMaxModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCzMM();});
 
 // ═══ CONTAGEM ═══
 function setCC(f){
@@ -2188,6 +2341,416 @@ function clearPDV(){
   document.getElementById('btnClearPDV').style.display='none';
   renderAcuracia();
   toast('Dados PDV removidos','');
+}
+
+// ═══════════════════════════════════════════════
+//  COZINHA DATA
+// ═══════════════════════════════════════════════
+const COZINHA = [{"produto": "Acém", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 5.0, "est_max": 10.0, "saldo": null}, {"produto": "Bacon Fatiado", "subgrupo": "Proteína", "unidade": "und", "entrega": 3, "est_min": 3.0, "est_max": 4.0, "saldo": null}, {"produto": "Bacon em cubos", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Acém moído", "subgrupo": "Proteína", "unidade": "kg", "entrega": 4, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Maça de peito moída", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Camarão molho", "subgrupo": "Proteína", "unidade": "kg", "entrega": 3, "est_min": 1.0, "est_max": 5.0, "saldo": null}, {"produto": "Músculo", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Músculo moído", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Chorizo", "subgrupo": "Proteína", "unidade": "kg", "entrega": 4, "est_min": 5.0, "est_max": 24.0, "saldo": null}, {"produto": "Costela", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 10.0, "est_max": 30.0, "saldo": null}, {"produto": "Costelinha", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Coxa e sobrecoxa", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 5.0, "est_max": 15.0, "saldo": null}, {"produto": "Calabresa fatiada", "subgrupo": "Pizza", "unidade": "Kg", "entrega": null, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Filé mignon", "subgrupo": "Proteína", "unidade": "kg", "entrega": 2, "est_min": 5.0, "est_max": 10.0, "saldo": null}, {"produto": "Lagarto", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 4.0, "est_max": 20.0, "saldo": null}, {"produto": "Linguiça de costela", "subgrupo": "Proteína", "unidade": "Unidade", "entrega": 1, "est_min": 15.0, "est_max": 48.0, "saldo": null}, {"produto": "Linguiça toscana", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Panceta", "subgrupo": "Proteína", "unidade": "Manta", "entrega": 4, "est_min": 1.0, "est_max": 5.0, "saldo": null}, {"produto": "Peito de frango", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 4.0, "est_max": 10.0, "saldo": null}, {"produto": "Linguiça caseira", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 3.0, "est_max": 5.0, "saldo": null}, {"produto": "Picanha", "subgrupo": "Proteína", "unidade": "kg", "entrega": 4, "est_min": 5.0, "est_max": 15.0, "saldo": null}, {"produto": "Salmão", "subgrupo": "Proteína", "unidade": "manta", "entrega": 3, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Salsicha", "subgrupo": "Proteína", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Tilápia", "subgrupo": "Proteína", "unidade": "kg", "entrega": 3, "est_min": 5.0, "est_max": 15.0, "saldo": null}, {"produto": "Açucar Refinado", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 10.0, "est_max": 20.0, "saldo": null}, {"produto": "Açúcar cristal", "subgrupo": "Insumo", "unidade": "5kg", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Pão de hot dog", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Arroz Arboreo", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Arroz Branco", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 5.0, "est_max": 10.0, "saldo": null}, {"produto": "Azeite", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 6.0, "est_max": 10.0, "saldo": null}, {"produto": "Azeite de Dende", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Batata palha", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Baguete", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Batata fast food", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 5.0, "est_max": 10.0, "saldo": null}, {"produto": "Bolacha maisena", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 6.0, "saldo": null}, {"produto": "Cafe", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Chantimix Amelia 1l", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Chocolate meio amargo", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Coco ralado em Flocos", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Creme de Leite 1l", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 8.0, "est_max": 15.0, "saldo": null}, {"produto": "Extrato de tomate", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Farinha de  Trigo", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 4.0, "est_max": 10.0, "saldo": null}, {"produto": "Farinha de Mandioca", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Farinha Panko", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 5.0, "est_max": 15.0, "saldo": null}, {"produto": "Feijão", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 6.0, "saldo": null}, {"produto": "Fettucinne", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Gas Cozinha", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "gas de maçarico", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Gas P45", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Isqueiro", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Ketchup", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Leite condensado", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 5.0, "est_max": 10.0, "saldo": null}, {"produto": "Leite de cocô", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 5.0, "saldo": null}, {"produto": "leite em po", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Leite integral", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 4.0, "est_max": 6.0, "saldo": null}, {"produto": "Linguini", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Maionese Hellmans", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 5.0, "est_max": 8.0, "saldo": null}, {"produto": "Maisena", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Massa de pastel", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Mel", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Milho Verde", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Molho ingles", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 6.0, "saldo": null}, {"produto": "Mostarda Dijon", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Oleo de soja", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 6.0, "est_max": 35.0, "saldo": null}, {"produto": "Ovo Somai", "subgrupo": "Insumo", "unidade": "Pente", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Pao de Hamburguer Brioche", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 10.0, "est_max": 15.0, "saldo": null}, {"produto": "Penne", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "PARMA", "subgrupo": "Pizza", "unidade": "", "entrega": null, "est_min": null, "est_max": null, "saldo": null}, {"produto": "Po Royal", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Sal", "subgrupo": "Insumo", "unidade": "Kg", "entrega": 1, "est_min": 3.0, "est_max": 12.0, "saldo": null}, {"produto": "Sal de Parilla", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Shoyu", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Sorvete de bauninha e caramelo", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Spaguette", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Tomate pelado pedaço", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 6.0, "est_max": 24.0, "saldo": null}, {"produto": "Tomate seco", "subgrupo": "Insumo", "unidade": "balde", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Vinagre de alcool", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Vinho branco seco", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Vinho Tinto seco", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Vinagre Balsamico", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "goiabada", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Mussarela", "subgrupo": "Insumo", "unidade": "peça", "entrega": 1, "est_min": 3.0, "est_max": 8.0, "saldo": null}, {"produto": "Mussarela de Bufala", "subgrupo": "Insumo", "unidade": "und", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Queijo minas", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Parmesão", "subgrupo": "Insumo", "unidade": "peça", "entrega": 1, "est_min": 4.0, "est_max": 8.0, "saldo": null}, {"produto": "Gorgonzola", "subgrupo": "Insumo", "unidade": "peça", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Provolone", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Requeijão barra", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Requeijão cremoso", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Cream Chesse", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Manteiga em barra", "subgrupo": "Insumo", "unidade": "peça", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Margarina 1kg", "subgrupo": "Insumo", "unidade": "und", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Manteiga de Garrafa", "subgrupo": "Insumo", "unidade": "litro", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Queijo Prato", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Polpa de pequi", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Paprica defumada", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Paprica doce", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Paprica picante", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Lemon ervas finas", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 500.0, "saldo": null}, {"produto": "Pimenta do reino", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Oregáno", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Pega marido", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Açafrão da terra", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Folhas de louro", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Sal rosa", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Chimichuri", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Corante", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 500.0, "saldo": null}, {"produto": "Lemon Paper", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Fumaça em Po", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 300.0, "saldo": null}, {"produto": "Flor de sal", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 5.0, "saldo": null}, {"produto": "Sal de Parilla Defumada", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 0.5, "est_max": 2.0, "saldo": null}, {"produto": "Sal  Grosso Ajinomoto", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 4.0, "saldo": null}, {"produto": "Pimenta do reino em po", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Alecrim", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Curry", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Alho em Pó", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Cebola em Pó", "subgrupo": "Insumo", "unidade": "gramas", "entrega": 1, "est_min": 100.0, "est_max": 500.0, "saldo": null}, {"produto": "Agua sanitária 5lts", "subgrupo": "Insumo", "unidade": "", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Bucha amarela", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Pano de prato", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 7.0, "saldo": null}, {"produto": "Rodo", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Diabo verde", "subgrupo": "Insumo", "unidade": "", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Vassoura", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Detergente Ype 7l", "subgrupo": "Insumo", "unidade": "", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Desinfetante 5lts", "subgrupo": "Insumo", "unidade": "", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Papel toalha", "subgrupo": "Insumo", "unidade": "unidades", "entrega": 1, "est_min": 1.0, "est_max": 5.0, "saldo": null}, {"produto": "Luva amarela", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Pano de chão", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Sabonete liquido", "subgrupo": "Insumo", "unidade": "litros", "entrega": 1, "est_min": 2.0, "est_max": 5.0, "saldo": null}, {"produto": "Sabão em pó", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Bucha grossa (verde)", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Bombril", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 8.0, "saldo": null}, {"produto": "Limpa aluminio", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Veja desingordurante", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 6.0, "saldo": null}, {"produto": "Cif", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Baigon", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Alcool Liquido", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 6.0, "saldo": null}, {"produto": "Bobina Termica", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Bubina de saquinho de 1kg", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 6.0, "saldo": null}, {"produto": "Bubina de saquinho de 5kg", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Canudos", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Guardanapo", "subgrupo": "Insumo", "unidade": "cx", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Palito de dente", "subgrupo": "Insumo", "unidade": "pct", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Papel aluminio", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Papel Higienico Rolão", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Papel interfolhado", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Papel manteiga", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Papel toalha", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 6.0, "saldo": null}, {"produto": "Plastico filme", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 0.2, "est_max": 1.0, "saldo": null}, {"produto": "Pote redondo 1kg", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "pote retangular 500ml", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Pote retangular 750ml", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Saco de lixo G 200l", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 10.0, "saldo": null}, {"produto": "Saco de lixo P", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 10.0, "saldo": null}, {"produto": "Sacolas", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 3.0, "est_max": 20.0, "saldo": null}, {"produto": "Saquinho de Talher", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 10.0, "saldo": null}, {"produto": "Vela de aniversario", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 10.0, "saldo": null}, {"produto": "toca descartavel", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "prato de bolo 20cm", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 3, "est_min": 5.0, "est_max": 20.0, "saldo": null}, {"produto": "Fita de Cetim", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 3.0, "est_max": 6.0, "saldo": null}, {"produto": "Chocolate em Po", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Essencia de Baunilha", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Abacaxi", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Abobrinha", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 2.0, "saldo": null}, {"produto": "Agrião", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Alface Americano", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Alface roxa", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Alho DESCASCADO", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Alho poró", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Banana caturra", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": 1, "est_min": 1.0, "est_max": 6.0, "saldo": null}, {"produto": "Batata Asterix", "subgrupo": "Insumo", "unidade": "saco", "entrega": 1, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Batata Baby", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 0.5, "est_max": 1.0, "saldo": null}, {"produto": "Batata doce branca", "subgrupo": "Insumo", "unidade": "kg", "entrega": 1, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Batata Inglesa", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Brócolis", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Cebola amarela", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 3.0, "est_max": 5.0, "saldo": null}, {"produto": "Cebola roxa", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 3.0, "est_max": 5.0, "saldo": null}, {"produto": "Cenoura", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Cheiro Verde", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Coentro Bolinha", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Coentro Folha", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 3.0, "saldo": null}, {"produto": "Hortelã", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Limão Siciliano", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 1.0, "est_max": 4.0, "saldo": null}, {"produto": "Limão Taiti", "subgrupo": "Insumo", "unidade": "saco", "entrega": null, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Mandioca Descascada", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 10.0, "est_max": 15.0, "saldo": null}, {"produto": "Mangas", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Manjericão", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Pimenta dedo de moça", "subgrupo": "Insumo", "unidade": "Grama", "entrega": null, "est_min": 100.0, "est_max": 200.0, "saldo": null}, {"produto": "Pimentão verde", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 2.0, "est_max": 3.0, "saldo": null}, {"produto": "Pimentões Amarelo", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Pimentões Vermelhos", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Rúcula", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Salsa", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Tomate Cereja", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 2.0, "est_max": 4.0, "saldo": null}, {"produto": "Tomate Italiano", "subgrupo": "Insumo", "unidade": "kg", "entrega": null, "est_min": 3.0, "est_max": 5.0, "saldo": null}, {"produto": "Uvas Thompson", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}, {"produto": "Abacaxi Bar", "subgrupo": "Insumo", "unidade": "Unidade", "entrega": null, "est_min": 1.0, "est_max": 2.0, "saldo": null}];
+
+const CZ_ICONS = {
+  'Proteína': '🥩',
+  'Insumo':   '🧂',
+  'Pizza':    '🍕',
+};
+
+// ═══ COZINHA STATE ═══
+window.czContagens    = {};
+window.czHistorico    = [];
+window.czStatuses     = {};
+window.czNotes        = {};
+window.czCustomMinMax = JSON.parse(localStorage.getItem('czCustomMinMax')||'{}');
+let czFilter    = 'all';
+let czContFilter= 'all';
+let czModalId   = null;
+
+// Firebase callbacks
+window._czrc  = ()=>{ renderCozinhaCompras(); };
+window._czrco = ()=>{ if(document.getElementById('czSub-contagem')?.style.display!=='none') renderCozinhaContagem(); };
+
+// ═══ HELPERS ═══
+function czGetMin(item){
+  const c = window.czCustomMinMax[item.produto];
+  return c ? c.min : item.est_min;
+}
+function czGetMax(item){
+  const c = window.czCustomMinMax[item.produto];
+  return c ? c.max : item.est_max;
+}
+
+// ═══ NAV ═══
+function setCzTab(tab){
+  ['compras','contagem','historico'].forEach(t=>{
+    const el=document.getElementById('czSub-'+t);
+    if(el) el.style.display=t===tab?'block':'none';
+    const btn=document.getElementById('cz-'+t);
+    if(btn) btn.classList.toggle('on',t===tab);
+  });
+  if(tab==='compras')  renderCozinhaCompras();
+  if(tab==='contagem') renderCozinhaContagem();
+  if(tab==='historico')renderCozinhaHistorico();
+}
+
+// ═══ COMPRAS ═══
+function setCzF(f){
+  czFilter=f;
+  ['all','pending','bought','received'].forEach(k=>
+    document.getElementById('czf'+k[0])?.classList.toggle('on',k===f));
+  renderCozinhaCompras();
+}
+
+function renderCozinhaCompras(){
+  const q = norm(document.getElementById('czSrch')?.value||'');
+
+  const effectiveItems = COZINHA.map(it=>{
+    const cont        = window.czContagens[it.produto];
+    const estoqueReal = cont ? cont.qty : it.saldo;
+    const hasCont     = !!cont;
+    const min         = czGetMin(it);
+    const max         = czGetMax(it);
+    const estoqueCalc = estoqueReal !== null ? estoqueReal : (min !== null ? 0 : null);
+    const needsBuy    = min !== null && estoqueCalc !== null && estoqueCalc < min;
+    const qtdComprar  = (needsBuy && min !== null) ? Math.ceil(min - (estoqueReal ?? 0)) : null;
+    return {...it, estoqueReal, hasCont, needsBuy, qtdComprar};
+  });
+
+  const toBuy = effectiveItems.filter(i=>i.needsBuy);
+  const filtered = toBuy.filter(it=>{
+    const st = window.czStatuses[it.produto]||'pending';
+    const mf = czFilter==='all'||st===czFilter;
+    const mq = !q||norm(it.produto).includes(q)||norm(it.subgrupo||'').includes(q);
+    return mf&&mq;
+  });
+
+  const tot=toBuy.length, buy=toBuy.filter(i=>window.czStatuses[i.produto]==='bought').length;
+  const recv=toBuy.filter(i=>window.czStatuses[i.produto]==='received').length;
+  const pend=tot-buy-recv, pct=tot?Math.round((buy+recv)/tot*100):0;
+  document.getElementById('czST').textContent=tot;
+  document.getElementById('czSP').textContent=pend;
+  document.getElementById('czSB').textContent=buy;
+  document.getElementById('czSR').textContent=recv;
+  document.getElementById('czPFill').style.width=pct+'%';
+  document.getElementById('czPPct').textContent=pct+'%';
+
+  const cats={};
+  filtered.forEach(it=>{ const c=it.subgrupo||'Geral';(cats[c]=cats[c]||[]).push(it); });
+  const el=document.getElementById('czList');
+  if(!Object.keys(cats).length){
+    el.innerHTML='<div class="empty"><div class="ei">✅</div><h3>Tudo em estoque!</h3><p>Nenhum item abaixo do mínimo.</p></div>';
+    return;
+  }
+  el.innerHTML=Object.keys(cats).sort().map(cat=>{
+    const ci=cats[cat];
+    const done=ci.filter(i=>window.czStatuses[i.produto]==='bought'||window.czStatuses[i.produto]==='received').length;
+    const cpct=ci.length?Math.round(done/ci.length*100):0;
+    const icon=CZ_ICONS[cat]||'📦';
+    const open=!collapsed['cz_'+cat];
+    return `<div class="cat-block">
+  <div class="cat-head" onclick="czTogCat('${e(cat)}')">
+    <div class="ch-l"><span class="cat-icon">${icon}</span><span class="cat-name">${cat}</span></div>
+    <div class="ch-r"><span style="color:${cpct===100?'var(--green)':'var(--muted)'}">${done}/${ci.length}</span><span class="cat-chev ${open?'open':''}">▼</span></div>
+  </div>
+  <div class="cat-bar"><div class="cat-bar-fill" style="width:${cpct}%"></div></div>
+  <div class="cat-items ${open?'':'closed'}">${ci.map(it=>czRowHTML(it)).join('')}</div>
+</div>`;
+  }).join('');
+}
+
+function czRowHTML(it){
+  const id=it.produto,st=window.czStatuses[id]||'pending',nt=window.czNotes[id]||'';
+  const cls=st==='bought'?'bought':st==='received'?'received':'';
+  const cc=st==='bought'?'ck-buy':st==='received'?'ck-recv':'';
+  const ct=st==='bought'?'✓':st==='received'?'✓✓':'';
+  const tags=[];
+  if(it.hasCont) tags.push(`<span class="tag t-prc">🔢 ${it.estoqueReal} ${it.unidade}</span>`);
+  else if(it.estoqueReal!==null) tags.push(`<span class="tag t-sld">📋 Saldo: ${it.estoqueReal} ${it.unidade}</span>`);
+  else tags.push(`<span class="tag" style="border-color:#b8323230;color:var(--red)">📋 Sem saldo</span>`);
+  const mn=czGetMin(it),mx=czGetMax(it);
+  if(mn!=null) tags.push(`<span class="tag">Mín: ${mn} ${it.unidade}</span>`);
+  if(mx!=null) tags.push(`<span class="tag">Máx: ${mx} ${it.unidade}</span>`);
+  if(nt) tags.push(`<span class="tag t-obs">📝 ${nt.substring(0,26)}${nt.length>26?'…':''}</span>`);
+  return `<div class="irow ${cls}">
+  <div class="chk ${cc}" onclick="czCycle('${e(id)}')">${ct}</div>
+  <div class="iinfo"><div class="iname">${it.produto}</div><div class="itags">${tags.join('')}</div></div>
+  <div class="iqty" style="text-align:right;min-width:80px">
+    <b style="font-family:'Syne',sans-serif;font-size:.95rem;color:var(--accent)">${it.qtdComprar!=null?it.qtdComprar:'—'}</b>
+    <small style="display:block;font-size:.65rem;color:var(--muted)">${it.unidade||'un'}</small>
+  </div>
+  <div class="iacts">
+    <button class="abtn ab-buy ${st==='bought'?'on':''}"  onclick="czSetSt('${e(id)}','bought')">Comprado</button>
+    <button class="abtn ab-recv ${st==='received'?'on':''}" onclick="czSetSt('${e(id)}','received')">Recebido</button>
+    <button class="abtn ab-note ${nt?'has':''}" onclick="openNote('${e(id)}','${e(it.produto)}')">📝</button>
+  </div>
+</div>`;
+}
+
+async function czCycle(id){
+  const s=window.czStatuses[id]||'pending';
+  window.czStatuses[id]=s==='pending'?'bought':s==='bought'?'received':'pending';
+  renderCozinhaCompras();await fbSave('cz_statuses',window.czStatuses);
+}
+async function czSetSt(id,st){
+  window.czStatuses[id]=window.czStatuses[id]===st?'pending':st;
+  renderCozinhaCompras();await fbSave('cz_statuses',window.czStatuses);
+}
+function czTogCat(cat){
+  collapsed['cz_'+cat]=!collapsed['cz_'+cat];
+  localStorage.setItem('col',JSON.stringify(collapsed));
+  renderCozinhaCompras();
+}
+async function resetCozinha(){
+  if(!confirm('Limpar todos os status de compras da cozinha?'))return;
+  window.czStatuses={};renderCozinhaCompras();
+  await fbSave('cz_statuses',{});
+}
+
+// ═══ CONTAGEM COZINHA ═══
+function setCzCC(f){
+  czContFilter=f;
+  ['all','pending','done'].forEach(k=>document.getElementById('czcc-'+k)?.classList.toggle('on',k===f));
+  renderCozinhaContagem();
+}
+
+function renderCozinhaContagem(){
+  const q=norm(document.getElementById('czContSrch')?.value||'');
+  const cat=document.getElementById('czContCat')?.value||'';
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})+', '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const dateEl=document.getElementById('czContDate');if(dateEl)dateEl.textContent=dateStr;
+
+  const items=COZINHA.filter(it=>{
+    const mq=!q||norm(it.produto).includes(q);
+    const mc=!cat||it.subgrupo===cat;
+    const mf=czContFilter==='all'
+      ||(czContFilter==='pending'&&!window.czContagens[it.produto])
+      ||(czContFilter==='done'&&window.czContagens[it.produto]);
+    return mq&&mc&&mf;
+  });
+
+  const total=COZINHA.length,done=Object.keys(window.czContagens).length;
+  const pct=total?Math.round(done/total*100):0;
+  ['czContProg','czContPct','czContCount','czContSub'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    if(id==='czContProg')el.style.width=pct+'%';
+    else if(id==='czContPct')el.textContent=pct+'%';
+    else el.textContent=`${done}/${total} contados`;
+  });
+
+  const cats={};
+  items.forEach(it=>{const c=it.subgrupo||'Geral';(cats[c]=cats[c]||[]).push(it);});
+  const grid=document.getElementById('czContGrid');if(!grid)return;
+  if(!items.length){grid.innerHTML='<div class="empty"><div class="ei">🔍</div><h3>Nenhum item</h3></div>';return;}
+
+  grid.innerHTML=Object.keys(cats).sort().map(grp=>{
+    const ci=cats[grp],icon=CZ_ICONS[grp]||'📦';
+    const gdone=ci.filter(i=>window.czContagens[i.produto]).length;
+    return `<div class="cat-block">
+  <div class="cat-head" style="cursor:default">
+    <div class="ch-l"><span class="cat-icon">${icon}</span><span class="cat-name">${grp}</span></div>
+    <div class="ch-r"><span style="color:${gdone===ci.length?'var(--green)':'var(--muted)'}">${gdone}/${ci.length} contados</span></div>
+  </div>
+  <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden">
+    ${ci.map(it=>czContRowHTML(it)).join('')}
+  </div>
+</div>`;
+  }).join('');
+}
+
+function czContRowHTML(it){
+  const c=window.czContagens[it.produto],done=!!c;
+  const _e2=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+  const mn=czGetMin(it),mx=czGetMax(it);
+  return `<div class="irow ${done?'bought':''}" style="grid-template-columns:28px 1fr auto auto auto">
+  <div class="chk ${done?'ck-buy':''}" style="cursor:default">${done?'✓':''}</div>
+  <div class="iinfo">
+    <div class="iname">${it.produto}</div>
+    <div class="itags">
+      ${done?`<span class="tag t-prc">✓ ${c.qty} ${it.unidade}</span><span class="tag t-obs">🕐 ${c.date}</span>`
+            :`<span class="tag" style="border-color:#b8323230;color:var(--red)">Não contado</span>`}
+      ${mn!=null?`<span class="tag">Mín: ${mn}</span>`:''}
+      ${mx!=null?`<span class="tag">Máx: ${mx}</span>`:''}
+      <span class="tag t-obs">${it.unidade}</span>
+    </div>
+  </div>
+  <div class="iqty"><b style="color:${done?'var(--green)':'var(--muted)'}">${done?c.qty:'—'}</b><small>${it.unidade}</small></div>
+  <div class="iacts">
+    <button class="abtn ab-buy ${done?'on':''}" onclick="openCzModal('${_e2(it.produto)}','${_e2(it.subgrupo)}','${_e2(it.unidade)}')">
+      ${done?'✏️ Editar':'+ Contar'}
+    </button>
+    <button class="abtn" style="font-size:.63rem;border-color:#63a8f530;color:var(--blue)" onclick="openCzMM('${_e2(it.produto)}')" title="Editar Mín/Máx">📊</button>
+  </div>
+</div>`;
+}
+
+function openCzModal(produto,grupo,unidade){
+  czModalId=produto;
+  const c=window.czContagens[produto];
+  document.getElementById('czModal-title').textContent=produto;
+  document.getElementById('czModal-grupo').textContent=grupo;
+  document.getElementById('czModal-un').textContent=unidade;
+  const item=COZINHA.find(i=>i.produto===produto);
+  document.getElementById('czModal-ant').textContent=c?`Anterior: ${c.qty} ${unidade}`:item?.saldo!=null?`Saldo: ${item.saldo}`:'1ª contagem';
+  document.getElementById('czModal-qty').value=c?c.qty:'';
+  document.getElementById('czModal-obs').value=c?c.obs||'':'';
+  document.getElementById('czContModal').classList.add('open');
+  setTimeout(()=>document.getElementById('czModal-qty').focus(),100);
+}
+function closeCzModal(){document.getElementById('czContModal').classList.remove('open');czModalId=null;}
+
+async function saveCzContItem(){
+  if(!czModalId)return;
+  const qty=parseFloat(document.getElementById('czModal-qty').value);
+  if(isNaN(qty)||qty<0){toast('Informe uma quantidade válida','err');return;}
+  const obs=document.getElementById('czModal-obs').value.trim();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const anterior=window.czContagens[czModalId]?.qty??null;
+  window.czContagens[czModalId]={qty,obs,date:dateStr,ts:now.getTime()};
+
+  // Historico
+  const item=COZINHA.find(i=>i.produto===czModalId);
+  window.czHistorico.unshift({produto:czModalId,subgrupo:item?.subgrupo||'',unidade:item?.unidade||'',qty,anterior,obs,date:dateStr,ts:now.getTime()});
+  if(window.czHistorico.length>1000)window.czHistorico=window.czHistorico.slice(0,1000);
+
+  await fbSave('cz_contagens',window.czContagens);
+  await fbSave('cz_historico',{entries:window.czHistorico});
+  closeCzModal();renderCozinhaContagem();renderCozinhaCompras();
+  toast('Contagem salva ✓','ok');
+}
+
+async function saveCozinhaContagem(){
+  await fbSave('cz_contagens',window.czContagens);
+  toast(`${Object.keys(window.czContagens).length} itens salvos ✓`,'ok');
+}
+
+function exportCozinhaContagem(){
+  const now=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  let csv='Produto;Grupo;Unidade;Qtd Contada;Data;Obs\n';
+  COZINHA.forEach(it=>{const c=window.czContagens[it.produto];csv+=`${it.produto};${it.subgrupo};${it.unidade};${c?c.qty:''};${c?c.date:''};${c?c.obs||'':''}\n`;});
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`contagem_cozinha_${now}.csv`;a.click();
+  toast('Exportado ✓','ok');
+}
+
+async function novaCozinhaContagem(){
+  const total=Object.keys(window.czContagens).length;
+  if(total===0){toast('Nenhuma contagem para arquivar','');return;}
+  if(!confirm(`Iniciar nova contagem?\n\nIsso vai arquivar as ${total} contagens atuais e zerar para nova rodada.`))return;
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+now.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  window.czHistorico=[{produto:'── NOVA CONTAGEM ──',subgrupo:'',qty:null,anterior:null,obs:`${total} itens arquivados`,date:dateStr,ts:now.getTime(),isSeparator:true},...window.czHistorico];
+  window.czContagens={};window.czStatuses={};
+  await fbSave('cz_contagens',{});await fbSave('cz_statuses',{});await fbSave('cz_historico',{entries:window.czHistorico});
+  renderCozinhaContagem();renderCozinhaCompras();
+  toast(`Nova contagem iniciada! ${total} registros arquivados ✓`,'ok');
+}
+
+// ═══ HISTÓRICO COZINHA ═══
+function renderCozinhaHistorico(){
+  const q=norm(document.getElementById('czHistSrch')?.value||'');
+  const cat=document.getElementById('czHistCat')?.value||'';
+  const container=document.getElementById('czHistContainer');if(!container)return;
+  const histSubEl=document.getElementById('czHistSub');
+  if(histSubEl)histSubEl.textContent=`${window.czHistorico.length} registros`;
+  const entries=window.czHistorico.filter(e=>{
+    if(e.isSeparator)return true;
+    return(!q||norm(e.produto).includes(q))&&(!cat||e.subgrupo===cat);
+  });
+  if(!entries.length){container.innerHTML='<div class="empty"><div class="ei">🕒</div><h3>Nenhum histórico ainda</h3><p>As contagens feitas aparecem aqui.</p></div>';return;}
+  const byDate={};
+  entries.forEach(e=>{
+    if(e.isSeparator){const k='sep_'+e.ts;byDate[k]=[e];return;}
+    const day=e.date.split(' ')[0];if(!byDate[day])byDate[day]=[];byDate[day].push(e);
+  });
+  container.innerHTML=Object.keys(byDate).map(day=>{
+    const de=byDate[day];
+    if(de[0]?.isSeparator)return`<div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;
+      padding:10px 16px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span style="font-size:.75rem;color:var(--muted)">🔄 ${de[0].date}</span>
+      <span style="flex:1;border-top:1px dashed var(--border)"></span>
+      <span style="font-size:.72rem;color:var(--accent);font-weight:700">NOVA CONTAGEM INICIADA</span>
+      <span style="flex:1;border-top:1px dashed var(--border)"></span>
+      <span style="font-size:.7rem;color:var(--muted)">${de[0].obs}</span>
+    </div>`;
+    return`<div class="cat-block" style="margin-bottom:16px">
+  <div class="cat-head" style="cursor:default">
+    <div class="ch-l"><span class="cat-icon">📅</span><span class="cat-name">${day}</span></div>
+    <div class="ch-r"><span>${de.length} contagem${de.length>1?'s':''}</span></div>
+  </div>
+  <div style="border:1px solid var(--border);border-top:none;border-radius:0 0 10px 10px;overflow:hidden">
+    ${de.map(entry=>{
+      const diff=entry.anterior!==null?entry.qty-entry.anterior:null;
+      const dc=diff===null?'var(--muted)':diff>0?'var(--blue)':diff<0?'var(--red)':'var(--green)';
+      const dt=diff===null?'':(diff>0?'+':'')+diff.toFixed(1);
+      return`<div class="irow" style="grid-template-columns:auto 1fr auto auto">
+        <div style="font-size:1rem;padding:0 4px">${CZ_ICONS[entry.subgrupo]||'📦'}</div>
+        <div class="iinfo">
+          <div class="iname">${entry.produto}</div>
+          <div class="itags">
+            <span class="tag">${entry.subgrupo||'—'}</span>
+            <span class="tag t-obs">🕐 ${entry.date.split(' ')[1]||''}</span>
+            ${entry.obs?`<span class="tag t-obs">💬 ${entry.obs}</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;min-width:90px">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem">${entry.qty} ${entry.unidade||''}</div>
+          ${entry.anterior!==null?`<div style="font-size:.7rem;color:${dc};font-weight:600">${dt} (ant: ${entry.anterior})</div>`
+            :`<div style="font-size:.7rem;color:var(--muted)">1ª contagem</div>`}
+        </div>
+        <div style="min-width:70px;text-align:right">
+          ${diff===null?'':diff>0.5?'<span style="color:var(--blue);font-size:.7rem;font-weight:700">📈 Subiu</span>'
+            :diff<-0.5?'<span style="color:var(--red);font-size:.7rem;font-weight:700">📉 Caiu</span>'
+            :'<span style="color:var(--green);font-size:.7rem;font-weight:700">✅ Igual</span>'}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>`;
+  }).join('');
+}
+
+function exportCozinhaHistorico(){
+  if(!window.czHistorico.length){toast('Nenhum histórico','err');return;}
+  const now=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  let csv='Data;Hora;Produto;Grupo;Unidade;Qtd;Anterior;Obs\n';
+  window.czHistorico.filter(e=>!e.isSeparator).forEach(e=>{
+    const[day,time]=e.date.split(' ');
+    csv+=[day||'',time||'',e.produto,e.subgrupo||'',e.unidade||'',e.qty,e.anterior??'',e.obs||''].join(';')+'\n';
+  });
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`historico_cozinha_${now}.csv`;a.click();
+  toast('Exportado ✓','ok');
+}
+
+async function clearCozinhaHistorico(){
+  if(!confirm('Apagar TODO o histórico da cozinha?'))return;
+  window.czHistorico=[];
+  await fbSave('cz_historico',{entries:[]});
+  renderCozinhaHistorico();toast('Histórico apagado','ok');
+}
+
+// ═══ EDIT MIN/MAX COZINHA ═══
+function openCzMM(produto){
+  const item=COZINHA.find(i=>i.produto===produto);
+  const custom=window.czCustomMinMax[produto]||{};
+  document.getElementById('czMMProduto').value=produto;
+  document.getElementById('czMMNome').textContent=produto;
+  document.getElementById('czMMMin').value=custom.min??item?.est_min??'';
+  document.getElementById('czMMMax').value=custom.max??item?.est_max??'';
+  document.getElementById('czMinMaxModal').classList.add('open');
+  setTimeout(()=>document.getElementById('czMMMin').focus(),100);
+}
+function closeCzMM(){document.getElementById('czMinMaxModal').classList.remove('open');}
+function saveCzMM(){
+  const prod=document.getElementById('czMMProduto').value;
+  const min=parseFloat(document.getElementById('czMMMin').value);
+  const max=parseFloat(document.getElementById('czMMMax').value);
+  if(isNaN(min)||isNaN(max)||min<0||max<0){toast('Valores inválidos','err');return;}
+  if(max<min){toast('Máximo deve ser maior que mínimo','err');return;}
+  window.czCustomMinMax[prod]={min,max};
+  localStorage.setItem('czCustomMinMax',JSON.stringify(window.czCustomMinMax));
+  closeCzMM();renderCozinhaContagem();renderCozinhaCompras();
+  toast('Mín/Máx atualizado ✓','ok');
 }
 
 // ═══ INIT ═══
