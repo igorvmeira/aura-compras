@@ -484,6 +484,44 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
   </div>
 </div>
 
+<!-- ITEM DETAIL MODAL -->
+<div class="modal-bg" id="itemDetailModal">
+  <div class="modal" style="max-width:480px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h4 id="detailTitle" style="font-size:.95rem;flex:1;margin:0"></h4>
+      <button onclick="closeItemDetail()" style="background:transparent;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:0 4px">✕</button>
+    </div>
+
+    <!-- Estoque info -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px" id="detailStats"></div>
+
+    <!-- Conversão fardo -->
+    <div id="detailFardo" style="display:none;background:var(--s2);border:1px solid var(--border);
+      border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem">
+    </div>
+
+    <!-- Melhor preço -->
+    <div class="stitle" style="font-size:.78rem;margin-bottom:8px">💰 Cotações</div>
+    <div id="detailPrices" style="margin-bottom:14px"></div>
+
+    <!-- Vendas -->
+    <div id="detailVendas" style="margin-bottom:14px"></div>
+
+    <!-- Nota -->
+    <div class="stitle" style="font-size:.78rem;margin-bottom:6px">📝 Observação</div>
+    <textarea id="detailNote" placeholder="Anotações sobre este item..."
+      style="width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);
+      border-radius:8px;padding:9px;font-family:'DM Sans',sans-serif;font-size:.83rem;
+      resize:vertical;min-height:60px;margin-bottom:12px"></textarea>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="abtn" onclick="hideItem(window._detailId);closeItemDetail()" style="color:var(--muted)">🙈 Ocultar</button>
+      <button class="btn-g" onclick="closeItemDetail()">Fechar</button>
+      <button class="btn" onclick="saveDetailNote()">💾 Salvar nota</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ COTAÇÕES ═══════════ -->
 <div class="page" id="page-cotacoes">
   <div class="stitle">📤 Nova Cotação <small>PDF, foto, Excel ou texto — lido pela IA</small></div>
@@ -1068,6 +1106,114 @@ function setF(f){
   renderCompras();
 }
 
+function openItemDetail(id){
+  window._detailId = id;
+  const it = RAW.items.find(i=>i.produto===id);
+  if(!it) return;
+
+  document.getElementById('detailTitle').textContent = it.produto;
+  document.getElementById('detailNote').value = window.notes[id]||'';
+
+  const cont = window.contagens[id];
+  const estoqueReal = cont ? cont.qty : it.saldo;
+  const _min = getMin(it), _max = getMax(it);
+  const _f = formatQtd(it.qtdComprar, it.produto);
+
+  // Stats grid
+  const statItems = [
+    {label:'Estoque atual', val: estoqueReal!=null?estoqueReal:'—', color: cont?'var(--green)':'var(--muted)',
+     sub: cont ? `contagem ${cont.date}` : 'saldo planilha'},
+    {label:'Mínimo',        val: _min!=null?_min:'—',    color:'var(--red)',    sub:'gatilho de compra'},
+    {label:'Máximo',        val: _max!=null?_max:'—',    color:'var(--blue)',   sub:'estoque ideal'},
+    {label:'Comprar',       val: _f.text,                color:'var(--accent)', sub: _f.sub||'unidades'},
+  ];
+  document.getElementById('detailStats').innerHTML = statItems.map(s=>`
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:.65rem;color:var(--muted);margin-bottom:4px">${s.label}</div>
+      <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:${s.color}">${s.val}</div>
+      <div style="font-size:.6rem;color:var(--muted);margin-top:2px">${s.sub}</div>
+    </div>`).join('');
+
+  // Fardo conversion detail
+  const fardo = getFardo(id);
+  const fardoEl = document.getElementById('detailFardo');
+  if(fardo && it.qtdComprar > 0){
+    const unids = Math.ceil(it.qtdComprar);
+    const fardos = Math.ceil(it.qtdComprar / fardo.un);
+    fardoEl.style.display = '';
+    fardoEl.innerHTML = `📦 <b>${unids} unidades</b> = <b style="color:var(--accent)">${fardos} ${fardo.label}${fardos>1?'s':''}</b> de ${fardo.un} unidades cada`;
+  } else {
+    fardoEl.style.display = 'none';
+  }
+
+  // Prices from cotacoes
+  const prices = [];
+  RAW.cotacoes.forEach(c=>{
+    if(sameProduct(c.produto, id)){
+      Object.entries(c.precos).forEach(([sup,p])=>{
+        if(p!=null&&!isNaN(p)) prices.push({sup, p:Number(p)});
+      });
+    }
+  });
+  window.extraQuotes.forEach(q=>{
+    q.items.forEach(qi=>{
+      if(sameProduct(qi.name, id)&&qi.price!=null) prices.push({sup:q.supplier, p:Number(qi.price)});
+    });
+  });
+  // Also add from planilha
+  if(it.fornec1 && it.preco1) prices.push({sup:it.fornec1, p:it.preco1});
+  if(it.fornec2 && it.preco2) prices.push({sup:it.fornec2, p:it.preco2});
+
+  // Dedupe and sort
+  const seen = new Set();
+  const uniquePrices = prices.filter(p=>{ const k=p.sup+p.p; if(seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a,b)=>a.p-b.p);
+  const minP = uniquePrices[0]?.p;
+
+  const pricesEl = document.getElementById('detailPrices');
+  if(uniquePrices.length){
+    pricesEl.innerHTML = uniquePrices.map((p,i)=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        padding:7px 10px;border-radius:7px;margin-bottom:4px;
+        background:${p.p===minP?'rgba(62,207,142,.08)':'var(--s2)'};
+        border:1px solid ${p.p===minP?'rgba(62,207,142,.3)':'var(--border)'}">
+        <span style="font-size:.82rem">${p.p===minP?'⭐ ':''}<b>${p.sup}</b></span>
+        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:.9rem;
+          color:${p.p===minP?'var(--green)':'var(--text)'}">R$ ${p.p.toFixed(2)}</span>
+      </div>`).join('');
+  } else {
+    pricesEl.innerHTML = '<div style="font-size:.78rem;color:var(--muted);padding:8px 0">Nenhuma cotação cadastrada</div>';
+  }
+
+  // Vendas
+  const venda = RAW.vendas.find(v=>sameProduct(v.nome, id));
+  const vendasEl = document.getElementById('detailVendas');
+  if(venda?.consumo_medio || venda?.qty){
+    vendasEl.innerHTML = `<div class="stitle" style="font-size:.78rem;margin-bottom:6px">📈 Vendas</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${venda.qty?`<span class="tag t-vtag">Total: ${venda.qty} un</span>`:''}
+        ${venda.consumo_medio?`<span class="tag t-vtag">Média: ${venda.consumo_medio}/mês</span>`:''}
+      </div>`;
+  } else { vendasEl.innerHTML=''; }
+
+  document.getElementById('itemDetailModal').classList.add('open');
+}
+
+function closeItemDetail(){
+  document.getElementById('itemDetailModal').classList.remove('open');
+  window._detailId = null;
+}
+
+async function saveDetailNote(){
+  const id = window._detailId;
+  if(!id) return;
+  window.notes[id] = document.getElementById('detailNote').value.trim();
+  await fbSave('notes', window.notes);
+  closeItemDetail();
+  renderCompras();
+  toast('Nota salva ✓','ok');
+}
+
 function getBestPrice(produto){
   // Build combined price map from RAW.cotacoes + extraQuotes
   const prices = [];
@@ -1126,14 +1272,15 @@ function getFardo(produto){
 function formatQtd(qtd, produto){
   if(!qtd || qtd <= 0) return {text: '—', sub: ''};
   const fardo = getFardo(produto);
+  const unids = Math.ceil(qtd);
   if(!fardo){
-    return {text: String(Math.ceil(qtd)), sub: 'unid.'};
+    return {text: String(unids), sub: 'unid.'};
   }
   const fardos = Math.ceil(qtd / fardo.un);
-  const unids  = Math.ceil(qtd);
+  // Format: "51 un" big, "(5 fardos de 12)" small below
   return {
-    text: String(fardos),
-    sub:  `${fardo.label}${fardos>1?'s':''} de ${fardo.un} (${unids} un)`
+    text: String(unids),
+    sub:  `${fardos} ${fardo.label}${fardos>1?'s':''} de ${fardo.un}`
   };
 }
 
@@ -1214,47 +1361,43 @@ function renderCompras(){
 }
 
 function rowHTML(it){
-  contagens=window.contagens;
-  const id=it.produto,st=window.statuses[id]||'pending',nt=window.notes[id]||'';
+  contagens = window.contagens;
+  const id=it.produto, st=window.statuses[id]||'pending';
   const cls=st==='bought'?'bought':st==='received'?'received':'';
   const cc=st==='bought'?'ck-buy':st==='received'?'ck-recv':'';
   const ct=st==='bought'?'✓':st==='received'?'✓✓':'';
-  const tags=[];
-  if(it.hasCont){
-    tags.push(`<span class="tag t-prc">🔢 Contagem: ${it.estoqueReal}</span>`);
-  } else if(it.estoqueReal !== null && it.estoqueReal !== undefined){
-    tags.push(`<span class="tag t-sld">📋 Saldo: ${Math.round(it.estoqueReal)}</span>`);
-  } else {
-    tags.push(`<span class="tag" style="border-color:#b8323230;color:var(--red)">📋 Sem saldo — assumido 0</span>`);
-  }
-  const _min=getMin(it),_max=getMax(it);
-  if(_min!=null) tags.push(`<span class="tag">Mín: ${Math.round(_min)}</span>`);
-  if(_max!=null) tags.push(`<span class="tag">Máx: ${Math.round(_max)}</span>`);
-  // Get best price from cotacoes (extraQuotes + RAW.cotacoes)
-  const _bestPrice = getBestPrice(it.produto);
-  if(_bestPrice){
-    tags.push(`<span class="tag t-sup">🏪 ${_bestPrice.supplier}</span>`);
-    tags.push(`<span class="tag t-prc">💰 R$ ${_bestPrice.price.toFixed(2)}</span>`);
-  } else {
-    if(it.fornec1) tags.push(`<span class="tag t-sup">🏪 ${it.fornec1}</span>`);
-    if(it.preco1)  tags.push(`<span class="tag t-prc">💰 R$ ${it.preco1.toFixed(2)}</span>`);
-    if(it.fornec2&&it.preco2) tags.push(`<span class="tag t-sup" style="opacity:.65">🏪 ${it.fornec2} R$${it.preco2.toFixed(2)}</span>`);
-  }
-  if(nt) tags.push(`<span class="tag t-obs">📝 ${nt.substring(0,26)}${nt.length>26?'…':''}</span>`);
-  const v=RAW.vendas.find(v=>sameProduct(v.nome,id));
-  if(v?.consumo_medio) tags.push(`<span class="tag t-vtag">📈 ${v.consumo_medio}/mês</span>`);
-  return `<div class="irow ${cls}">
+
+  const _min = getMin(it), _max = getMax(it);
+  const cont = contagens[id];
+  const estoqueReal = cont ? cont.qty : (it.saldo !== null && it.saldo !== undefined ? it.saldo : null);
+  const est = estoqueReal !== null ? (Math.round(estoqueReal*10)/10) : '—';
+  const estColor = cont ? 'var(--green)' : 'var(--muted)';
+  const _f = formatQtd(it.qtdComprar, it.produto);
+
+  return `<div class="irow ${cls}" style="grid-template-columns:28px 1fr auto auto">
   <div class="chk ${cc}" onclick="cycle('${e(id)}')">${ct}</div>
-  <div class="iinfo"><div class="iname">${it.produto}</div><div class="itags">${tags.join('')}</div></div>
-  <div class="iqty"><b>${it.qtdComprar!=null?it.qtdComprar:'—'}</b><small>comprar</small></div>
+
+  <div class="iinfo" onclick="openItemDetail('${e(id)}')" style="cursor:pointer">
+    <div class="iname">${it.produto} <span style="font-size:.6rem;color:var(--muted)">ℹ️</span></div>
+    <div class="itags">
+      <span class="tag" style="color:${estColor}">${cont?'🔢':'📋'} ${est}</span>
+      ${_min!=null?`<span class="tag">Mín: ${_min}</span>`:''}
+      ${_max!=null?`<span class="tag">Máx: ${_max}</span>`:''}
+    </div>
+  </div>
+
+  <div style="text-align:right;min-width:72px;line-height:1.3;padding:0 6px;flex-shrink:0">
+    <b style="font-family:'Syne',sans-serif;font-size:1.05rem;color:var(--accent)">${_f.text}</b>
+    <small style="display:block;font-size:.58rem;color:var(--muted)">${_f.sub||'unid.'}</small>
+  </div>
+
   <div class="iacts">
-    <button class="abtn ab-buy ${st==='bought'?'on':''}" onclick="setSt('${e(id)}','bought')">Comprado</button>
-    <button class="abtn ab-recv ${st==='received'?'on':''}" onclick="setSt('${e(id)}','received')">Recebido</button>
-    <button class="abtn ab-note ${nt?'has':''}" onclick="openNote('${e(id)}','${e(it.produto)}')">📝</button>
-    <button class="abtn" style="font-size:.65rem;color:var(--muted)" onclick="hideItem('${e(id)}')" title="Ocultar">🙈</button>
+    <button class="abtn ab-buy ${st==='bought'?'on':''}"  onclick="setSt('${e(id)}','bought')">✓ Comprado</button>
+    <button class="abtn ab-recv ${st==='received'?'on':''}" onclick="setSt('${e(id)}','received')">✓✓ Recebido</button>
   </div>
 </div>`;
 }
+
 
 async function cycle(id){
   const s=window.statuses[id]||'pending';
@@ -1294,6 +1437,7 @@ document.getElementById('editNameModal').addEventListener('click',e=>{if(e.targe
 document.getElementById('editMinMaxModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeMinMax();});
 document.getElementById('contModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeContModal();});
 document.getElementById('czContModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCzModal();});
+document.getElementById('itemDetailModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeItemDetail();});
 document.getElementById('czMinMaxModal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeCzMM();});
 
 // ═══ CONTAGEM ═══
