@@ -311,11 +311,16 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <button class="tab on" onclick="goPage('compras',this)">🛒 Bar</button>
     <button class="tab" onclick="goPage('cozinha',this)">🍽️ Cozinha</button>
     <button class="tab" onclick="goPage('cotacoes',this)">📊 Cotações</button>
-    <button class="tab" onclick="goPage('vendas',this)">📈 Vendas</button>
-    <button class="tab" onclick="goPage('estoque',this)">📦 Estoque</button>
-    <button class="tab" onclick="goPage('acuracia',this)">🎯 Acurácia</button>
   </div>
 </nav>
+
+<!-- BAR SUB-NAV -->
+<div id="barSubnav" style="display:flex;gap:6px;max-width:980px;margin:0 auto;padding:14px 14px 0;flex-wrap:wrap">
+  <button class="fb on" id="bt-compras"  onclick="setBarTab('compras')">🛒 Compras</button>
+  <button class="fb"    id="bt-vendas"   onclick="setBarTab('vendas')">📈 Vendas</button>
+  <button class="fb"    id="bt-estoque"  onclick="setBarTab('estoque')">📦 Estoque</button>
+  <button class="fb"    id="bt-acuracia" onclick="setBarTab('acuracia')">🎯 Acurácia</button>
+</div>
 
 <!-- ═══════════ COMPRAS ═══════════ -->
 <div class="page on" id="page-compras">
@@ -1173,16 +1178,41 @@ function sameProduct(a,b){
 function e(s){ return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;') }
 
 // ═══ NAV ═══
+const BAR_GROUP = ['compras','vendas','estoque','acuracia'];
+
 function goPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.getElementById('page-'+id).classList.add('on');
   el.classList.add('on');
-  if(id==='cotacoes') renderCotacoes();
-  if(id==='vendas')   renderVendas();
-  if(id==='estoque')  { setETab('lista'); renderEstoque(); renderContagem(); }
-  if(id==='acuracia') renderAcuracia();
-  if(id==='cozinha')  { setCzTab('compras'); }
+
+  const subnav = document.getElementById('barSubnav');
+
+  if(BAR_GROUP.includes(id)){
+    if(subnav) subnav.style.display='flex';
+    setBarTab(id);
+  } else {
+    if(subnav) subnav.style.display='none';
+    document.getElementById('page-'+id).classList.add('on');
+    if(id==='cotacoes') renderCotacoes();
+    if(id==='cozinha')  setCzTab('compras');
+  }
+}
+
+function setBarTab(tab){
+  BAR_GROUP.forEach(t=>{
+    const p=document.getElementById('page-'+t);
+    if(p) p.classList.toggle('on', t===tab);
+    const b=document.getElementById('bt-'+t);
+    if(b) b.classList.toggle('on', t===tab);
+  });
+  if(tab==='compras')  renderCompras();
+  if(tab==='vendas')   renderVendas();
+  if(tab==='estoque'){
+    setETab('lista');
+    renderEstoque();
+    renderContagem();
+  }
+  if(tab==='acuracia') renderAcuracia();
 }
 
 // ═══ COMPRAS ═══
