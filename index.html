@@ -15,7 +15,7 @@
      ═══════════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInAnonymously }            from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -31,8 +31,30 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 const auth = getAuth(app);
 
-signInAnonymously(auth).then(() => {
+signInAnonymously(auth).then(async () => {
   document.getElementById('syncDot').classList.add('live');
+
+  // ── MIGRAÇÃO: se o Firebase ainda não tem estes dados, sobe o que está no localStorage deste navegador ──
+  async function migrateIfMissing(key, localKey, transform){
+    try{
+      const snap = await getDoc(doc(db,'gestao',key));
+      if(!snap.exists()){
+        const local = localStorage.getItem(localKey);
+        if(local){
+          const parsed = JSON.parse(local);
+          const value = transform ? transform(parsed) : parsed;
+          if(value && (Array.isArray(value) ? value.length : Object.keys(value).length)){
+            await setDoc(doc(db,'gestao',key), Array.isArray(value) ? {list: value} : value);
+            console.log('Migrado para Firebase:', key);
+          }
+        }
+      }
+    }catch(e){ console.warn('Migração falhou para', key, e); }
+  }
+  await migrateIfMissing('customNames',  'customNames');
+  await migrateIfMissing('customMinMax', 'customMinMax');
+  await migrateIfMissing('hiddenItems',  'hiddenItems');
+  await migrateIfMissing('czCustomMinMax','czCustomMinMax');
 
   onSnapshot(doc(db,'gestao','statuses'), s => {
     if(s.exists()){ window.statuses = s.data(); window._rc && window._rc(); }
