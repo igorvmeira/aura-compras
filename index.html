@@ -354,6 +354,7 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
     <button class="fb on" id="cz-compras"  onclick="setCzTab('compras')">🛒 Lista de Compras</button>
     <button class="fb"    id="cz-contagem" onclick="setCzTab('contagem')">🔢 Contagem</button>
     <button class="fb"    id="cz-historico" onclick="setCzTab('historico')">🕒 Histórico</button>
+    <button class="fb"    id="cz-fornecedores" onclick="setCzTab('fornecedores')">🤖 Comparar Fornecedores</button>
   </div>
 
   <!-- COMPRAS -->
@@ -429,6 +430,91 @@ nav{background:var(--s1);border-bottom:1px solid var(--border);padding:12px 18px
       </select>
     </div>
     <div id="czHistContainer"></div>
+  </div>
+
+  <!-- FORNECEDORES (AI COMPARE) -->
+  <div id="czSub-fornecedores" style="display:none">
+
+    <!-- STEP 1: Reference list -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px">
+      <div class="stitle" style="margin-bottom:10px">📋 1. Lista de Referência <small>itens que precisa comprar, com quantidades</small></div>
+      <div class="uzone" id="refZone" style="padding:22px">
+        <input type="file" id="refFile" accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.txt">
+        <div style="font-size:1.6rem;margin-bottom:6px">📄</div>
+        <div style="font-family:'Syne',sans-serif;font-size:.86rem" id="refZoneH">Subir lista de referência</div>
+        <div style="font-size:.72rem;color:var(--muted)">Excel, CSV, PDF, foto ou texto</div>
+      </div>
+      <textarea id="refPaste" placeholder="Ou cole aqui a lista (ex: 24kg Frango, 12un Maionese 1kg...)"
+        style="width:100%;min-height:70px;margin-top:10px;background:var(--s1);border:1px solid var(--border);
+        color:var(--text);padding:10px;border-radius:8px;font-size:.82rem;resize:vertical"></textarea>
+    </div>
+
+    <!-- STEP 2: Supplier quotations -->
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;margin-bottom:16px">
+      <div class="stitle" style="margin-bottom:10px">🏪 2. Cotações dos Fornecedores <small>adicione 2 ou mais</small></div>
+      <div id="supplierBlocks"></div>
+      <button class="btn-g" onclick="addSupplierBlock()" style="margin-top:8px">+ Adicionar fornecedor</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:18px">
+      <button class="btn" id="btnAnalisarForn" onclick="analisarFornecedores()">🔍 Analisar e Comparar</button>
+      <button class="btn-g" onclick="clearFornecedores()">Limpar tudo</button>
+    </div>
+
+    <div class="ai-box" id="fornAiBox" style="display:none">
+      <div class="spinner"></div>
+      <span id="fornAiMsg" style="font-size:.84rem;color:var(--muted)"></span>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="fornResults" style="display:none">
+
+      <div class="stats" style="margin-bottom:16px" id="fornStats"></div>
+
+      <div class="stitle">📊 Comparativo <small id="fornCompSub"></small></div>
+      <div style="overflow-x:auto;margin-bottom:20px">
+        <table class="tbl" id="fornCompTable">
+          <thead id="fornCompHead"></thead>
+          <tbody id="fornCompBody"></tbody>
+        </table>
+      </div>
+
+      <div id="fornFaltantesBox" style="display:none;margin-bottom:18px">
+        <div class="stitle" style="color:var(--red)">⚠️ Itens não encontrados <small>buscar em outro fornecedor</small></div>
+        <div id="fornFaltantesList" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+
+      <div id="fornConfirmBox" style="display:none;margin-bottom:18px">
+        <div class="stitle" style="color:var(--orange)">❓ Precisam de confirmação <small>embalagem ou marca diferente</small></div>
+        <div id="fornConfirmList"></div>
+      </div>
+
+      <div class="stitle">🧾 Listas Finais por Fornecedor</div>
+      <div id="fornFinalLists" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:20px"></div>
+    </div>
+  </div>
+
+  <!-- ESPELHO CHECK -->
+  <div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);
+    padding:16px 18px;margin-top:24px" id="espelhoSection">
+    <div class="stitle" style="margin-bottom:10px">🪞 3. Conferir Espelho do Pedido <small>confronta o que o fornecedor confirmou vs combinado</small></div>
+    <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px" id="espelhoNeedsList">
+      Finalize uma comparação acima antes de conferir o espelho.
+    </div>
+    <div class="uzone" id="espelhoZone" style="padding:20px;display:none">
+      <input type="file" id="espelhoFile" accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.txt">
+      <div style="font-size:1.6rem;margin-bottom:6px">🪞</div>
+      <div style="font-family:'Syne',sans-serif;font-size:.86rem" id="espelhoZoneH">Subir espelho/confirmação do pedido</div>
+      <div style="font-size:.72rem;color:var(--muted)">PDF, foto, Excel ou texto</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px" id="espelhoBtns" style="display:none">
+      <button class="btn" id="btnConferirEspelho" onclick="conferirEspelho()" style="display:none">🔍 Conferir Espelho</button>
+    </div>
+    <div class="ai-box" id="espelhoAiBox" style="display:none">
+      <div class="spinner"></div>
+      <span id="espelhoAiMsg" style="font-size:.84rem;color:var(--muted)"></span>
+    </div>
+    <div id="espelhoResults" style="display:none;margin-top:14px"></div>
   </div>
 </div>
 
@@ -2895,6 +2981,461 @@ function saveCzMM(){
   localStorage.setItem('czCustomMinMax',JSON.stringify(window.czCustomMinMax));
   closeCzMM();renderCozinhaContagem();renderCozinhaCompras();
   toast('Mín/Máx atualizado ✓','ok');
+}
+
+// ═══════════════════════════════════════════════
+//  COMPARADOR DE FORNECEDORES (IA) — COZINHA
+// ═══════════════════════════════════════════════
+let supplierBlockCount = 0;
+let refFiles = [];
+let fornResult = null;          // último resultado da IA
+let fornConfirmResolved = {};   // idx -> fornecedor escolhido
+let espelhoFiles = [];
+
+function setCzTab_extend(){} // placeholder, real hook below
+
+// Extend setCzTab to support 'fornecedores'
+const _origSetCzTab = setCzTab;
+setCzTab = function(tab){
+  ['compras','contagem','historico','fornecedores'].forEach(t=>{
+    const el=document.getElementById('czSub-'+t);
+    if(el) el.style.display = t===tab ? 'block' : 'none';
+    const btn=document.getElementById('cz-'+t);
+    if(btn) btn.classList.toggle('on', t===tab);
+  });
+  if(tab==='compras')  renderCozinhaCompras();
+  if(tab==='contagem') renderCozinhaContagem();
+  if(tab==='historico')renderCozinhaHistorico();
+  if(tab==='fornecedores' && supplierBlockCount===0){ addSupplierBlock(); addSupplierBlock(); }
+};
+
+function addSupplierBlock(){
+  supplierBlockCount++;
+  const id = supplierBlockCount;
+  const wrap = document.getElementById('supplierBlocks');
+  const div = document.createElement('div');
+  div.id = 'supBlock_'+id;
+  div.style = 'border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--s1)';
+  div.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="supName_${id}" placeholder="Nome do fornecedor (ex: CEMA)"
+        style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);color:var(--text);
+        padding:7px 10px;border-radius:7px;font-size:.82rem">
+      <button onclick="document.getElementById('supBlock_${id}').remove()"
+        style="background:transparent;border:1px solid #b8323240;color:var(--red);border-radius:6px;
+        padding:4px 9px;font-size:.7rem;cursor:pointer">✕ Remover</button>
+    </div>
+    <input type="file" id="supFile_${id}" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.csv,.txt" multiple
+      style="font-size:.78rem;margin-bottom:6px;width:100%">
+    <textarea id="supPaste_${id}" placeholder="Ou cole o texto da cotação aqui..."
+      style="width:100%;min-height:50px;background:var(--s2);border:1px solid var(--border);
+      color:var(--text);padding:7px;border-radius:7px;font-size:.78rem;resize:vertical"></textarea>
+  `;
+  wrap.appendChild(div);
+}
+
+document.getElementById('refZone')?.addEventListener('dragover',ev=>{ev.preventDefault();ev.currentTarget.classList.add('drag')});
+document.getElementById('refZone')?.addEventListener('dragleave',ev=>ev.currentTarget.classList.remove('drag'));
+document.getElementById('refZone')?.addEventListener('drop',ev=>{
+  ev.preventDefault();ev.currentTarget.classList.remove('drag');
+  refFiles=[...ev.dataTransfer.files];
+  document.getElementById('refZoneH').textContent = refFiles.map(f=>f.name).join(', ');
+});
+document.getElementById('refFile')?.addEventListener('change',function(){
+  refFiles=[...this.files];
+  document.getElementById('refZoneH').textContent = refFiles.map(f=>f.name).join(', ')||'Subir lista de referência';
+});
+
+const FORN_SYSTEM_PROMPT = `Você é um assistente de compras que compara cotações de fornecedores e separa os melhores preços para o cliente fechar o pedido.
+
+O QUE FAZER:
+1. Cruzar a lista de referência com cada cotação, item por item, comparando preço unitário.
+2. Indicar o fornecedor mais barato de cada item, calculando por unidade ou por kg quando necessário (regra de 3 para embalagens/caixas de tamanhos diferentes — ex: frango cx 12kg vs cx 18kg, comparar sempre o preço por kg).
+3. Sinalizar itens faltantes — se algum item da lista de referência não estiver em nenhuma cotação, avisar para buscar em outro fornecedor.
+4. Sinalizar embalagens/formatos diferentes — quando o mesmo produto aparece em tamanhos ou marcas diferentes entre fornecedores (ex: maionese 1kg vs 3kg, queijo por kg vs espeto 285g), colocar em "confirmar" em vez de decidir sozinho.
+
+REGRAS DE DECISÃO:
+- Empate de preço: se o item custa igual em dois fornecedores, dar preferência ao que aparecer PRIMEIRO na lista de fornecedores fornecida.
+- Sem duplicatas: cada item aparece em APENAS UM fornecedor na lista final.
+- Custo-benefício por kg: ao decidir o mais barato, calcular o preço por kg/unidade real, não o preço de etiqueta.
+- Qualidade: respeitar marca específica pedida na lista de referência mesmo que mais cara.
+
+Responda SOMENTE com um JSON válido, sem markdown, sem texto fora do JSON, neste formato exato:
+{
+  "comparativo": [
+    {
+      "produto": "nome do produto",
+      "quantidade": "qtd necessária com unidade",
+      "precos": { "NomeFornecedor1": "R$ X,XX (detalhe embalagem se relevante)", "NomeFornecedor2": "..." },
+      "melhor_fornecedor": "nome do fornecedor vencedor ou null se faltante",
+      "preco_melhor": "R$ X,XX" ,
+      "justificativa": "frase curta explicando o cálculo, ex: R$15/kg vs R$14/kg"
+    }
+  ],
+  "faltantes": ["produto que não apareceu em nenhuma cotação"],
+  "confirmar": [
+    {
+      "produto": "nome do produto",
+      "motivo": "ex: tamanhos de embalagem diferentes, maionese 1kg vs 3kg",
+      "opcoes": [
+        {"fornecedor": "CEMA", "embalagem": "1kg", "preco": "R$ 12,00"},
+        {"fornecedor": "Mart Minas", "embalagem": "3kg", "preco": "R$ 30,00"}
+      ]
+    }
+  ]
+}
+Inclua TODOS os itens da lista de referência no array "comparativo" (mesmo os que vão para "confirmar" ou "faltantes" também aparecem lá, com melhor_fornecedor null se ainda não decidido).`;
+
+async function analisarFornecedores(){
+  const key = apiKey || prompt('Chave Anthropic API (sk-ant-...):');
+  if(!key){ toast('Chave necessária','err'); return; }
+  apiKey=key; localStorage.setItem('ak',key);
+
+  // Collect supplier names + files/text
+  const supplierBlocksEls = document.querySelectorAll('[id^="supBlock_"]');
+  const suppliers = [];
+  for(const block of supplierBlocksEls){
+    const idNum = block.id.split('_')[1];
+    const name  = document.getElementById('supName_'+idNum)?.value.trim();
+    const files = document.getElementById('supFile_'+idNum)?.files;
+    const paste = document.getElementById('supPaste_'+idNum)?.value.trim();
+    if(!name){ toast('Preencha o nome de todos os fornecedores','err'); return; }
+    if((!files||!files.length) && !paste){ toast(`Adicione cotação para ${name}`,'err'); return; }
+    suppliers.push({name, files: files?[...files]:[], paste});
+  }
+  if(suppliers.length < 1){ toast('Adicione ao menos 1 fornecedor','err'); return; }
+
+  const refPaste = document.getElementById('refPaste').value.trim();
+  if(!refFiles.length && !refPaste){ toast('Suba a lista de referência','err'); return; }
+
+  document.getElementById('btnAnalisarForn').disabled = true;
+  showFornAI('Preparando arquivos...');
+
+  try{
+    const parts = [];
+
+    // Reference list
+    parts.push({type:'text', text:'[LISTA DE REFERÊNCIA — itens que o cliente precisa comprar]'});
+    for(const file of refFiles){
+      const ext = file.name.split('.').pop().toLowerCase();
+      if(['png','jpg','jpeg','webp'].includes(ext)){
+        const b64=await f2b64(file);
+        parts.push({type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}});
+      } else if(ext==='pdf'){
+        const b64=await f2b64(file);
+        parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+      } else {
+        parts.push({type:'text', text:await f2txt(file)});
+      }
+    }
+    if(refPaste) parts.push({type:'text', text:refPaste});
+
+    // Suppliers
+    for(const sup of suppliers){
+      parts.push({type:'text', text:`\n[COTAÇÃO DO FORNECEDOR: ${sup.name}]`});
+      for(const file of sup.files){
+        const ext = file.name.split('.').pop().toLowerCase();
+        if(['png','jpg','jpeg','webp'].includes(ext)){
+          const b64=await f2b64(file);
+          parts.push({type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}});
+        } else if(ext==='pdf'){
+          const b64=await f2b64(file);
+          parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+        } else {
+          parts.push({type:'text', text:await f2txt(file)});
+        }
+      }
+      if(sup.paste) parts.push({type:'text', text:sup.paste});
+    }
+
+    parts.push({type:'text', text: `\n\nOrdem de preferência em caso de empate: ${suppliers.map(s=>s.name).join(' > ')}.\n\n${FORN_SYSTEM_PROMPT}`});
+
+    showFornAI('Analisando cotações com IA...');
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:4000, messages:[{role:'user', content:parts}]})
+    });
+    if(!res.ok){ const er=await res.json(); throw new Error(er.error?.message||'Erro API'); }
+    const d = await res.json();
+    const raw = d.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+    let parsed;
+    try{ parsed = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch{ const m=raw.match(/\{[\s\S]*\}/); if(m) parsed=JSON.parse(m[0]); else throw new Error('IA não retornou JSON válido'); }
+
+    fornResult = parsed;
+    fornResult._suppliers = suppliers.map(s=>s.name);
+    fornConfirmResolved = {};
+    hideFornAI();
+    renderFornResults();
+    toast('Análise concluída ✓','ok');
+
+  }catch(err){
+    hideFornAI();
+    toast('Erro: '+err.message,'err');
+    console.error(err);
+  }
+  document.getElementById('btnAnalisarForn').disabled = false;
+}
+
+function showFornAI(msg){
+  document.getElementById('fornAiBox').style.display='flex';
+  document.getElementById('fornAiMsg').textContent=msg;
+  document.getElementById('fornResults').style.display='none';
+}
+function hideFornAI(){ document.getElementById('fornAiBox').style.display='none'; }
+
+function renderFornResults(){
+  if(!fornResult) return;
+  document.getElementById('fornResults').style.display='block';
+
+  const comp = fornResult.comparativo || [];
+  const faltantes = fornResult.faltantes || [];
+  const confirmar = fornResult.confirmar || [];
+  const suppliers = fornResult._suppliers || [];
+
+  // Stats
+  const resolved = comp.filter(c=>c.melhor_fornecedor).length;
+  document.getElementById('fornStats').innerHTML = `
+    <div class="stat sy">📦 Itens: <b>${comp.length}</b></div>
+    <div class="stat sg">✅ Resolvidos: <b>${resolved}</b></div>
+    <div class="stat sr">⚠️ Faltantes: <b>${faltantes.length}</b></div>
+    <div class="stat" style="border-color:#fb923c55;color:var(--orange)">❓ Confirmar: <b>${confirmar.length}</b></div>
+  `;
+
+  document.getElementById('fornCompSub').textContent = `${suppliers.join(' vs ')}`;
+
+  // Table
+  document.getElementById('fornCompHead').innerHTML = `<tr>
+    <th>Produto</th><th>Qtd</th>
+    ${suppliers.map(s=>`<th class="fh">🏪 ${s}</th>`).join('')}
+    <th>✅ Melhor</th>
+  </tr>`;
+  document.getElementById('fornCompBody').innerHTML = comp.map(c=>{
+    const priceCells = suppliers.map(s=>{
+      const p = c.precos?.[s];
+      const isBest = c.melhor_fornecedor === s;
+      return `<td>${p?(isBest?`<span class="best">${p}</span>`:p):'<span class="nopr">—</span>'}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="font-weight:500">${c.produto}</td>
+      <td style="color:var(--muted);font-size:.78rem">${c.quantidade||''}</td>
+      ${priceCells}
+      <td>${c.melhor_fornecedor?`<span class="win">${c.melhor_fornecedor}</span><br><small style="color:var(--muted);font-size:.65rem">${c.justificativa||''}</small>`:'<span class="nopr">pendente</span>'}</td>
+    </tr>`;
+  }).join('');
+
+  // Faltantes
+  const faltBox = document.getElementById('fornFaltantesBox');
+  if(faltantes.length){
+    faltBox.style.display='block';
+    document.getElementById('fornFaltantesList').innerHTML = faltantes.map(f=>
+      `<span class="tag" style="border-color:#b8323240;color:var(--red);font-size:.78rem;padding:5px 12px">⚠️ ${f}</span>`
+    ).join('');
+  } else faltBox.style.display='none';
+
+  // Confirmar
+  const confBox = document.getElementById('fornConfirmBox');
+  if(confirmar.length){
+    confBox.style.display='block';
+    document.getElementById('fornConfirmList').innerHTML = confirmar.map((c,i)=>{
+      const resolved = fornConfirmResolved[i];
+      return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px">
+        <div style="font-weight:600;font-size:.85rem;margin-bottom:4px">${c.produto}</div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:8px">${c.motivo}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${c.opcoes.map(op=>`
+            <button onclick="resolveConfirm(${i},'${op.fornecedor.replace(/'/g,"\\'")}')"
+              style="background:${resolved===op.fornecedor?'var(--accent)':'var(--s1)'};
+              color:${resolved===op.fornecedor?'#111':'var(--text)'};
+              border:1px solid ${resolved===op.fornecedor?'var(--accent)':'var(--border)'};
+              border-radius:7px;padding:7px 12px;font-size:.78rem;cursor:pointer;font-weight:${resolved===op.fornecedor?'700':'400'}">
+              ${resolved===op.fornecedor?'✓ ':''}${op.fornecedor} — ${op.embalagem} — ${op.preco}
+            </button>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } else confBox.style.display='none';
+
+  renderFinalLists();
+}
+
+function resolveConfirm(idx, fornecedor){
+  fornConfirmResolved[idx] = fornecedor;
+  // Update comparativo entry to reflect resolution
+  const item = fornResult.confirmar[idx];
+  const compEntry = fornResult.comparativo.find(c=>c.produto===item.produto);
+  if(compEntry){
+    compEntry.melhor_fornecedor = fornecedor;
+    const opt = item.opcoes.find(o=>o.fornecedor===fornecedor);
+    compEntry.preco_melhor = opt?.preco;
+    compEntry.justificativa = 'Escolha manual (confirmação)';
+  }
+  renderFornResults();
+}
+
+function renderFinalLists(){
+  const suppliers = fornResult._suppliers || [];
+  const comp = fornResult.comparativo || [];
+
+  const bySupplier = {};
+  suppliers.forEach(s=>bySupplier[s]=[]);
+
+  comp.forEach(c=>{
+    if(c.melhor_fornecedor && bySupplier[c.melhor_fornecedor]){
+      bySupplier[c.melhor_fornecedor].push(c);
+    }
+  });
+
+  document.getElementById('fornFinalLists').innerHTML = suppliers.map(s=>{
+    const items = bySupplier[s]||[];
+    const listText = items.map(c=>`${c.quantidade||''} — ${c.produto}`).join('\\n');
+    return `<div style="background:var(--s2);border:1px solid var(--border);border-radius:var(--r);padding:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:.86rem">🏪 ${s}</span>
+        <span style="font-size:.72rem;color:var(--muted)">${items.length} itens</span>
+      </div>
+      <textarea readonly id="finalList_${s.replace(/\\s/g,'_')}" style="width:100%;min-height:140px;
+        background:var(--s1);border:1px solid var(--border);color:var(--text);
+        padding:8px;border-radius:7px;font-size:.78rem;resize:vertical;font-family:monospace">${listText}</textarea>
+      <button class="btn-g" style="margin-top:8px;width:100%" onclick="copyFinalList('${s.replace(/'/g,"\\'")}')">📋 Copiar lista</button>
+    </div>`;
+  }).join('');
+
+  // Store combined list for espelho check
+  window._fornCombinedList = comp.filter(c=>c.melhor_fornecedor).map(c=>({
+    produto: c.produto, quantidade: c.quantidade, fornecedor: c.melhor_fornecedor, preco: c.preco_melhor
+  }));
+
+  const needsList = document.getElementById('espelhoNeedsList');
+  const espZone = document.getElementById('espelhoZone');
+  const espBtn  = document.getElementById('btnConferirEspelho');
+  if(window._fornCombinedList.length){
+    needsList.textContent = `✅ ${window._fornCombinedList.length} itens combinados prontos para conferência.`;
+    espZone.style.display='';
+    espBtn.style.display='';
+  }
+}
+
+function copyFinalList(supplier){
+  const ta = document.getElementById('finalList_'+supplier.replace(/\s/g,'_'));
+  if(!ta) return;
+  navigator.clipboard.writeText(ta.value).then(()=>toast(`Lista de ${supplier} copiada ✓`,'ok'));
+}
+
+function clearFornecedores(){
+  refFiles=[]; fornResult=null; fornConfirmResolved={};
+  document.getElementById('refZoneH').textContent='Subir lista de referência';
+  document.getElementById('refPaste').value='';
+  document.getElementById('supplierBlocks').innerHTML='';
+  supplierBlockCount=0;
+  addSupplierBlock(); addSupplierBlock();
+  document.getElementById('fornResults').style.display='none';
+}
+
+// ═══ ESPELHO ═══
+document.getElementById('espelhoZone')?.addEventListener('dragover',ev=>{ev.preventDefault();ev.currentTarget.classList.add('drag')});
+document.getElementById('espelhoZone')?.addEventListener('dragleave',ev=>ev.currentTarget.classList.remove('drag'));
+document.getElementById('espelhoZone')?.addEventListener('drop',ev=>{
+  ev.preventDefault();ev.currentTarget.classList.remove('drag');
+  espelhoFiles=[...ev.dataTransfer.files];
+  document.getElementById('espelhoZoneH').textContent=espelhoFiles.map(f=>f.name).join(', ');
+});
+document.getElementById('espelhoFile')?.addEventListener('change',function(){
+  espelhoFiles=[...this.files];
+  document.getElementById('espelhoZoneH').textContent=espelhoFiles.map(f=>f.name).join(', ')||'Subir espelho/confirmação do pedido';
+});
+
+async function conferirEspelho(){
+  if(!window._fornCombinedList || !window._fornCombinedList.length){
+    toast('Finalize a comparação de fornecedores primeiro','err'); return;
+  }
+  if(!espelhoFiles.length){ toast('Suba o arquivo do espelho','err'); return; }
+
+  const key = apiKey || prompt('Chave Anthropic API (sk-ant-...):');
+  if(!key){ toast('Chave necessária','err'); return; }
+  apiKey=key; localStorage.setItem('ak',key);
+
+  document.getElementById('espelhoAiBox').style.display='flex';
+  document.getElementById('espelhoAiMsg').textContent='Lendo espelho do pedido...';
+  document.getElementById('espelhoResults').style.display='none';
+  document.getElementById('btnConferirEspelho').disabled=true;
+
+  try{
+    const parts = [];
+    parts.push({type:'text', text:'[LISTA COMBINADA — o que foi decidido comprar]\n'+JSON.stringify(window._fornCombinedList)});
+    parts.push({type:'text', text:'\n[ESPELHO/CONFIRMAÇÃO DO PEDIDO — documento enviado pelo fornecedor]'});
+    for(const file of espelhoFiles){
+      const ext=file.name.split('.').pop().toLowerCase();
+      if(['png','jpg','jpeg','webp'].includes(ext)){
+        const b64=await f2b64(file);
+        parts.push({type:'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}});
+      } else if(ext==='pdf'){
+        const b64=await f2b64(file);
+        parts.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
+      } else {
+        parts.push({type:'text', text:await f2txt(file)});
+      }
+    }
+    parts.push({type:'text', text:`\nConfira item por item o espelho contra a lista combinada. Para cada item da lista combinada, verifique se está no espelho com mesma quantidade e preço.
+Responda SOMENTE com JSON:
+{
+  "itens": [
+    {"produto":"...", "status":"ok|divergente|faltante", "detalhe":"explicação curta se houver problema"}
+  ],
+  "extras": ["item que apareceu no espelho mas não estava na lista combinada"]
+}`});
+
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514', max_tokens:2500, messages:[{role:'user', content:parts}]})
+    });
+    if(!res.ok){ const er=await res.json(); throw new Error(er.error?.message||'Erro API'); }
+    const d=await res.json();
+    const raw=d.content.filter(c=>c.type==='text').map(c=>c.text).join('');
+    let parsed;
+    try{ parsed=JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+    catch{ const m=raw.match(/\{[\s\S]*\}/); if(m) parsed=JSON.parse(m[0]); else throw new Error('JSON inválido'); }
+
+    document.getElementById('espelhoAiBox').style.display='none';
+    renderEspelhoResults(parsed);
+    toast('Espelho conferido ✓','ok');
+
+  }catch(err){
+    document.getElementById('espelhoAiBox').style.display='none';
+    toast('Erro: '+err.message,'err');
+  }
+  document.getElementById('btnConferirEspelho').disabled=false;
+}
+
+function renderEspelhoResults(data){
+  const box = document.getElementById('espelhoResults');
+  box.style.display='block';
+  const itens = data.itens||[];
+  const extras = data.extras||[];
+
+  const statusIcon = {ok:'✅', divergente:'⚠️', faltante:'❌'};
+  const statusColor = {ok:'var(--green)', divergente:'var(--orange)', faltante:'var(--red)'};
+
+  box.innerHTML = `
+    <div class="stats" style="margin-bottom:12px">
+      <div class="stat sg">✅ OK: <b>${itens.filter(i=>i.status==='ok').length}</b></div>
+      <div class="stat" style="border-color:#fb923c55;color:var(--orange)">⚠️ Divergente: <b>${itens.filter(i=>i.status==='divergente').length}</b></div>
+      <div class="stat sr">❌ Faltante: <b>${itens.filter(i=>i.status==='faltante').length}</b></div>
+    </div>
+    ${itens.map(i=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--border)">
+        <span style="font-size:1rem">${statusIcon[i.status]||'❓'}</span>
+        <div style="flex:1">
+          <div style="font-size:.84rem;font-weight:500">${i.produto}</div>
+          ${i.detalhe?`<div style="font-size:.72rem;color:${statusColor[i.status]}">${i.detalhe}</div>`:''}
+        </div>
+      </div>`).join('')}
+    ${extras.length?`
+      <div style="margin-top:12px">
+        <div style="font-size:.78rem;color:var(--blue);font-weight:600;margin-bottom:6px">ℹ️ Itens extras no espelho (não estavam na lista):</div>
+        ${extras.map(e=>`<span class="tag t-sup" style="margin-right:4px">${e}</span>`).join('')}
+      </div>`:''}
+  `;
 }
 
 // ═══ INIT ═══
